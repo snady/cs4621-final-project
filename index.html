@@ -45,7 +45,7 @@
 
 <!-- vertex shader -->
 <script id="vertexShaderTRN" type="x-shader/x-vertex">
-    
+
     attribute vec3 position;
     attribute vec2 texture_coords;
 
@@ -77,16 +77,17 @@
 
        // tcoords = texture_coords;
        gl_Position = mProj*mCam*vec4(position, 1.0);
-    	
+
     }
 
 </script>
 
 <script id="fragmentTRN" type="x-shader/x-fragment">
+    precision highp float;
 
-//Main
+    // Main
     void main() {
-       gl_FragColor = vec4(0, 1.0, 0, 1.0);
+        gl_FragColor = vec4(0, 1.0, 0, 1.0);
     }
 
 </script>
@@ -104,7 +105,7 @@
     	return gl;
     }
 
-    // var: gl 
+    // var: gl
     var gl = initWebGL(canvas);
 
     function makeShader(gl, id, shaderType) {
@@ -217,47 +218,211 @@
       // Check if the canvas is not the same size.
       if (canvas.width  != displayWidth ||
           canvas.height != displayHeight) {
-     
+
         // Make the canvas the same size
         canvas.width  = displayWidth;
         canvas.height = displayHeight;
       }
     }
-    //
-    var terraVertices = 
-    [0, 0, 0,
-    10, 0, 0,
-    10, 0, -10,
-    10, 0, -10,
-    0, 0, -10,
-    0, 0, 0];
 
-    var terraFaces = 
-    [0, 1, 2,
-    3, 4, 5];
+    var terrain = generateTerrain();
 
-    var cameraPos = [5, 10, 15];
+    // var terraVertices =
+    // [0, 0, 0,
+    // 10, 0, 0,
+    // 10, 0, -10,
+    // 10, 0, -10,
+    // 0, 0, -10,
+    // 0, 0, 0];
+
+    // var terraFaces =
+    // [0, 1, 2,
+    // 3, 4, 5];
+
+    var cameraPos = [50, 30, 15];
     var heading = Math.PI/2
     var phi = 120 * Math.PI/180
     var fov = 45 * Math.PI/180.0
-    
+
     var width = canvas.width();
     var height = canvas.height();
 
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
 
-    var vertexBufferT = setFloat32Buffer(gl, terraVertices);
-    var indexBufferF = setUInt16Buffer(gl, terraFaces);
+    var vertexBufferT = setFloat32Buffer(gl, terrain.vertices);
+    var indexBufferF = setUInt16Buffer(gl, terrain.indices);
+
+    // Random terrain generation functions
+    function genP() {
+        var p = [];
+
+        for (var i=0; i<256; i++) {
+            p.push(i);
+        }
+
+        for (var j=255; j>=0; j--) {
+            var val = Math.floor(Math.random()*j + 1);
+            var temp = p[j];
+            p[j] = p[val];
+            p[val] = temp
+        }
+
+        return p;
+    }
+
+    function noise(x, y, p) {
+        var xi = Math.floor(x & 255);
+        var yi = Math.floor(y & 255);
+
+        var xf = x - Math.floor(x);
+        var yf = y - Math.floor(y);
+
+        var u = fade(xf);
+        var v = fade(yf);
+
+        var a = p[p[ xi]    +  yi];
+        var b = p[p[ xi]    + (yi+1)];
+        var c = p[p[(xi+1)] +  yi];
+        var d = p[p[(xi+1)] + (yi+1)];
+
+        var x1 = lerp(grad(a, xf, yf),     grad(c, xf - 1, yf    ), u);
+        var x2 = lerp(grad(b, xf, yf - 1), grad(d, xf - 1, yf - 1), u);
+
+        return (lerp(x1, x2, v) + 1) / 2;
+    }
+
+    function grad(hash, x, y) {
+        switch (hash & 0xF) {
+            case 0x0:
+                return x + y;
+            case 0x1:
+                return -x + y;
+            case 0x2:
+                return x - y;
+            case 0x3:
+                return -x - y;
+            case 0x4:
+                return y + x;
+            case 0x5:
+                return -y + x;
+            case 0x6:
+                return y - x;
+            case 0x7:
+                return -y - x;
+            case 0x8:
+                return x + y;
+            case 0x9:
+                return -x + y;
+            case 0xA:
+                return x - y;
+            case 0xB:
+                return -x - y;
+            case 0xC:
+                return y + x;
+            case 0xD:
+                return -y + x;
+            case 0xE:
+                return y - x;
+            case 0xF:
+                return -y - x;
+            default:
+                return 0; // never happens
+        }
+    }
+
+    function fade(t) {
+        return 6 * Math.pow(t, 5) - 15 * Math.pow(t, 4) + 10 * Math.pow(t, 3);  // 6t^5 - 15t^4 + 10t^3
+    }
+
+    function lerp(a, b, x) {
+        return a + x * (b - a);
+    }
+
+    function perlin(x, y, p, nOctaves) {
+        var total = 0;
+        var frequency = 1;
+        var amplitude = 1;
+        var maxVal = 0;
+        var persistence = .4;
+
+        for(var i=0; i<nOctaves; i++) {
+            total += noise(x * frequency, y * frequency, p) * amplitude;
+
+            maxVal += amplitude;
+
+            amplitude *= persistence;
+            frequency *= 2;
+        }
+
+        return total/maxVal;
+    }
+
+    function generateTerrain() {
+        var w = 100;
+        var h = 100;
+
+        var p = genP();
+        var noiseData = [];
+
+        var elev;
+        var a = .05;
+        var b = 1;
+        var c = 2;
+        var d;
+		for (var j = 0; j < h; j++) {
+			for (var i = 0; i < w; i++) {
+                elev = Math.sqrt(perlin(3 * i / w, 3 * j / h, p, 20) * 10);
+                // d = Math.sqrt(Math.pow(Math.abs(i/w-.5), 2) + Math.pow(Math.abs(j/h-.5), 2))*2;
+                // elev += a - b * Math.pow(d,c);
+                // console.log(d);
+				noiseData.push(elev);
+			}
+		}
+
+		var minVal = Math.min.apply(null, noiseData)
+        var maxVal = Math.max.apply(null, noiseData);
+
+		var elevData = [];
+        var maxElev = 20;
+
+
+		for (var i = 0; i < noiseData.length; i++) {
+			elevData.push(maxElev * (noiseData[i] - minVal) / (maxVal - minVal));
+		}
+
+        var verts = [];
+        var indices = [];
+        var idx = 0;
+        for (var j=0; j<h-1; j++) {
+            for (var i=0; i<w-1; i++) {
+                verts.push(
+                    i  , elevData[ j   *w + i  ], -j,
+                    i+1, elevData[ j   *w + i+1], -j,
+                    i  , elevData[(j+1)*w + i  ], -(j+1),
+                    i+1, elevData[(j+1)*w + i+1], -(j+1)
+                )
+
+                indices.push(
+                    idx  , idx+1, idx+2,
+                    idx+2, idx+1, idx+3
+                )
+                idx+=4;
+            }
+        }
+        // console.log(verts);
+        // console.log(indices);
+        return {vertices: verts, indices: indices};
+    }
 
     //Main loop -->
     function updateWebGL() {
 
         resize(gl.canvas);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    
+
     	gl.clearColor(0.7, 0.7, 0.7, 1.0);
     	gl.clear(gl.COLOR_BUFFER_BIT);
-        
+
         gl.enable(gl.DEPTH_TEST);
 
         var projMat = mat4.create();
@@ -266,13 +431,13 @@
         gl.useProgram(programTRN);
         //SETTING UNIFORMS
         setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
- 
+
         setFloatUniform(gl, programTRN, "heading", heading);
 
         setFloatUniform(gl, programTRN, "phi", phi);
- 
+
         setMat4Uniform(gl, programTRN, "mProj", projMat);
-        
+
         //SETTING ATTRIBUTES, DRAWING
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferT);
         var positionLocation = gl.getAttribLocation(programTRN, "position")
@@ -281,7 +446,7 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferF);
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
         gl.useProgram(null);
