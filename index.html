@@ -25,7 +25,7 @@
 <div class="container">
 
     <div align="center">
-        <canvas id="webglCanvas" style="position: absolute;left: 0; top: 0;border: none; background-color: black; width: 100vw;height: 100vh;" ></canvas>
+        <canvas tabindex="1" id="webglCanvas" style="position: absolute;left: 0; top: 0;border: none; background-color: black; width: 100vw;height: 100vh;" ></canvas>
     </div>
 
     <br>
@@ -35,6 +35,7 @@
 <script src="js/jquery-3.1.1.min.js"></script>
 <script src="js/jquery-ui.min.js"></script>
 <script src="js/gl-matrix-min.js"></script>
+<script src="js/math.min.js"></script>
 <script src="scenes.js"></script>
 
 
@@ -93,6 +94,46 @@
 
 
 <script>
+
+    $("#webglCanvas").click(function (event) {
+        console.log("clicked");
+    });
+
+    $("#webglCanvas").keydown(function (event) {
+
+        if(event.key == "w" || event.key == "s" || event.key == "a" || event.key == "d" || event.key == "Shift" || event.key ==  " "){
+            var w = [-Math.cos(heading), -Math.cos(phi), Math.sin(heading)];
+            var len = Math.sqrt(w[0]*w[0]+w[1]*w[1]+w[2]*w[2]);
+            w = math.divide(w, len);
+            var u = math.cross([0,1,0],w);
+            var v = math.cross(w,u);
+
+        }
+        //in retrospect I should have used a switch case maybe
+        //consider making the speed/accelerations variable
+        if(event.key == "w"){
+            cameraPos = math.subtract(cameraPos, math.multiply(w, 0.5));
+        }else if(event.key == "s"){
+            cameraPos = math.add(cameraPos, math.multiply(w, 0.5));
+        }else if(event.key == "a"){
+            cameraPos = math.subtract(cameraPos, math.multiply(u, 0.5));
+        }else if(event.key == "d"){
+            cameraPos = math.add(cameraPos, math.multiply(u, 0.5));
+        }else if(event.key == "Shift" ){
+            cameraPos = math.subtract(cameraPos, math.multiply(v, 0.5));
+        }else if(event.key == " " ){
+            cameraPos = math.add(cameraPos, math.multiply(v, 0.5));
+        }else if(event.key == "ArrowUp" ){
+            phi -= (phi < Math.PI && phi > 0) ? 0.1 : 0 ;
+        }else if(event.key == "ArrowDown" ){
+            phi += (phi < Math.PI && phi > 0) ? 0.1 : 0 ;
+        }else if(event.key == "ArrowLeft" ){
+            heading += 0.1;
+        }else if(event.key == "ArrowRight" ){
+            heading -= 0.1;
+        }
+    
+    });
 
     var canvas = $("#webglCanvas");
 
