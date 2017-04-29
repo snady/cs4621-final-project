@@ -264,26 +264,51 @@
         canvas.height = displayHeight;
       }
     }
-    //
-    var terraVertices = 
-    [0, 0, 0,
-    10, 0, 0,
-    10, 0, -10,
-    10, 0, -10,
-    0, 0, -10,
-    0, 0, 0];
 
-    var terraFaces = 
-    [0, 1, 2,
-    3, 4, 5];
+    function initTerrain(width, depth, subdiv, ntex, vertices, indices, texcoords){
+        var xstep = width/subdiv;
+        var zstep = depth/subdiv;
+        var tstep = ntex/subdiv;
 
-    var cameraPos = [5, 10, 15];
-    var heading = Math.PI/2
-    var phi = 120 * Math.PI/180
-    var fov = 45 * Math.PI/180.0
+        var ind = 0;
+        for( var j = 0; j < subdiv; j++ ){
+            for( var i = 0; i < subdiv; i++ ){
+                vertices.push(i*xstep); vertices.push(0); vertices.push(-j*zstep);
+                vertices.push((i+1)*xstep); vertices.push(0); vertices.push(-j*zstep);
+                vertices.push((i+1)*xstep); vertices.push(0); vertices.push(-((j+1)*zstep));
+
+                vertices.push((i+1)*xstep); vertices.push(0); vertices.push(-((j+1)*zstep));
+                vertices.push(i*xstep); vertices.push(0); vertices.push(-((j+1)*zstep));
+                vertices.push(i*xstep); vertices.push(0); vertices.push(-j*zstep);
+
+                texcoords.push(i*xstep); texcoords.push(-j*zstep);
+                texcoords.push(i+tstep); texcoords.push(-j*zstep);
+                texcoords.push(i+tstep); texcoords.push(-(j+tstep));
+
+                texcoords.push(i+tstep); texcoords.push(-(j+tstep));
+                texcoords.push(i*xstep); texcoords.push(-(j+tstep));
+                texcoords.push(i*xstep); texcoords.push(-j*zstep);
+
+                indices.push(ind++); indices.push(ind++); indices.push(ind++);
+                indices.push(ind++); indices.push(ind++); indices.push(ind++);
+            }
+        }
+        cameraPos = [width/2, depth, depth];
+    }
+
+    var terraVertices = [];
+    var terraFaces = [];
+    var terraTex = [];
+
+    var cameraPos = [];
+    var heading = Math.PI/2;
+    var phi = 120 * Math.PI/180;
+    var fov = 45 * Math.PI/180.0;
     
     var width = canvas.width();
     var height = canvas.height();
+
+    initTerrain(10, 10, 2, 1, terraVertices, terraFaces, terraTex);
 
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
 
@@ -322,7 +347,7 @@
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferF);
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        gl.drawElements(gl.TRIANGLES, terraFaces.length, gl.UNSIGNED_SHORT, 0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
         gl.useProgram(null);
