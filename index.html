@@ -35,7 +35,8 @@
 <script src="js/jquery-3.1.1.min.js"></script>
 <script src="js/jquery-ui.min.js"></script>
 <script src="js/gl-matrix-min.js"></script>
-<script src="js/math.min.js"></script>
+<script src="js/preloadjs-0.6.2.min.js"></script>
+<script src="js/terrain.js"></script>
 <script src="scenes.js"></script>
 
 
@@ -46,7 +47,7 @@
 
 <!-- vertex shader -->
 <script id="vertexShaderTRN" type="x-shader/x-vertex">
-    
+
     attribute vec3 position;
     attribute vec2 texture_coords;
 
@@ -55,7 +56,7 @@
     uniform float phi;
     uniform mat4 mProj;
 
-   //varying vec2 tcoords;
+   varying vec2 tcoords;
 
     void main() {
         vec3 e = cameraPos;
@@ -76,18 +77,22 @@
             -e.x, -e.y, -e.z, 1.0);
         mat4 mCam = A*B;
 
-       // tcoords = texture_coords;
+       tcoords = texture_coords;
        gl_Position = mProj*mCam*vec4(position, 1.0);
-    	
+
     }
 
 </script>
 
 <script id="fragmentTRN" type="x-shader/x-fragment">
+    precision highp float;
 
-//Main
+    uniform sampler2D texture0;
+    varying vec2 tcoords;
+    // Main
     void main() {
-       gl_FragColor = vec4(0, 1.0, 0, 1.0);
+        //gl_FragColor = vec4(0, 1.0, 0, 1.0);
+        gl_FragColor = texture2D(texture0, tcoords);
     }
 
 </script>
@@ -102,31 +107,39 @@
     $("#webglCanvas").keydown(function (event) {
 
         if(event.key == "w" || event.key == "s" || event.key == "a" || event.key == "d" || event.key == "Shift" || event.key ==  " "){
-            var w = [-Math.cos(heading), -Math.cos(phi), Math.sin(heading)];
-            var len = Math.sqrt(w[0]*w[0]+w[1]*w[1]+w[2]*w[2]);
-            w = math.divide(w, len);
-            var u = math.cross([0,1,0],w);
-            var v = math.cross(w,u);
+            var w = vec3.create();
+            var u = vec3.create();
+            var v = vec3.create();
+            var cam = vec3.fromValues(cameraPos[0], cameraPos[1], cameraPos[2]);
+            vec3.normalize(w, vec3.fromValues(-Math.cos(heading), -Math.cos(phi), Math.sin(heading)));
+            vec3.cross(u, vec3.fromValues(0,1,0), w);
+            vec3.cross(v, w, u);
 
         }
         //in retrospect I should have used a switch case maybe
         //consider making the speed/accelerations variable
         if(event.key == "w"){
-            cameraPos = math.subtract(cameraPos, math.multiply(w, 0.5));
+            vec3.sub(cam, cam, vec3.scale(w,w,0.5));
+            cameraPos = cam;
         }else if(event.key == "s"){
-            cameraPos = math.add(cameraPos, math.multiply(w, 0.5));
+            vec3.add(cam, cam, vec3.scale(w,w,0.5));
+            cameraPos = cam;
         }else if(event.key == "a"){
-            cameraPos = math.subtract(cameraPos, math.multiply(u, 0.5));
+            vec3.sub(cam, cam, vec3.scale(u,u,0.5));
+            cameraPos = cam;
         }else if(event.key == "d"){
-            cameraPos = math.add(cameraPos, math.multiply(u, 0.5));
+            vec3.add(cam, cam, vec3.scale(u,u,0.5));
+            cameraPos = cam;
         }else if(event.key == "Shift" ){
-            cameraPos = math.subtract(cameraPos, math.multiply(v, 0.5));
+            vec3.sub(cam, cam, vec3.scale(v,v,0.5));
+            cameraPos = cam;
         }else if(event.key == " " ){
-            cameraPos = math.add(cameraPos, math.multiply(v, 0.5));
+            vec3.add(cam, cam, vec3.scale(v,v,0.5));
+            cameraPos = cam;
         }else if(event.key == "ArrowUp" ){
-            phi -= (phi < Math.PI && phi > 0) ? 0.1 : 0 ;
+            phi -= (phi > 0) ? 0.1 : 0 ;
         }else if(event.key == "ArrowDown" ){
-            phi += (phi < Math.PI && phi > 0) ? 0.1 : 0 ;
+            phi += (phi < Math.PI ) ? 0.1 : 0 ;
         }else if(event.key == "ArrowLeft" ){
             heading += 0.1;
         }else if(event.key == "ArrowRight" ){
@@ -145,7 +158,7 @@
     	return gl;
     }
 
-    // var: gl 
+    // var: gl
     var gl = initWebGL(canvas);
 
     function makeShader(gl, id, shaderType) {
@@ -258,104 +271,173 @@
       // Check if the canvas is not the same size.
       if (canvas.width  != displayWidth ||
           canvas.height != displayHeight) {
-     
+
         // Make the canvas the same size
         canvas.width  = displayWidth;
         canvas.height = displayHeight;
       }
     }
 
-    function initTerrain(width, depth, subdiv, ntex, vertices, indices, texcoords){
-        var xstep = width/subdiv;
-        var zstep = depth/subdiv;
-        var tstep = ntex/subdiv;
-
-        var ind = 0;
-        for( var j = 0; j < subdiv; j++ ){
-            for( var i = 0; i < subdiv; i++ ){
-                vertices.push(i*xstep); vertices.push(0); vertices.push(-j*zstep);
-                vertices.push((i+1)*xstep); vertices.push(0); vertices.push(-j*zstep);
-                vertices.push((i+1)*xstep); vertices.push(0); vertices.push(-((j+1)*zstep));
-
-                vertices.push((i+1)*xstep); vertices.push(0); vertices.push(-((j+1)*zstep));
-                vertices.push(i*xstep); vertices.push(0); vertices.push(-((j+1)*zstep));
-                vertices.push(i*xstep); vertices.push(0); vertices.push(-j*zstep);
-
-                texcoords.push(i*xstep); texcoords.push(-j*zstep);
-                texcoords.push(i+tstep); texcoords.push(-j*zstep);
-                texcoords.push(i+tstep); texcoords.push(-(j+tstep));
-
-                texcoords.push(i+tstep); texcoords.push(-(j+tstep));
-                texcoords.push(i*xstep); texcoords.push(-(j+tstep));
-                texcoords.push(i*xstep); texcoords.push(-j*zstep);
-
-                indices.push(ind++); indices.push(ind++); indices.push(ind++);
-                indices.push(ind++); indices.push(ind++); indices.push(ind++);
-            }
-        }
-        cameraPos = [width/2, depth, depth];
-    }
-
-    var terraVertices = [];
-    var terraFaces = [];
-    var terraTex = [];
-
     var cameraPos = [];
-    var heading = Math.PI/2;
-    var phi = 120 * Math.PI/180;
-    var fov = 45 * Math.PI/180.0;
-    
+    var heading = Math.PI/2
+    var phi = 120 * Math.PI/180
+    var fov = 45 * Math.PI/180.0
+
+    var terrain = generateTerrain(75, 2);
+
     var width = canvas.width();
     var height = canvas.height();
 
-    initTerrain(10, 10, 2, 1, terraVertices, terraFaces, terraTex);
+    var vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
+    var indexBuffer = setUInt16Buffer(gl, terrain.indices);
+    var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
 
-    var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
+    function generateTerrain(ndiv, ntex) {
+        // var w = 100;
+        // var h = 100;
+        var w = ndiv;
+        var h = ndiv;
+        var tstep = ntex/ndiv;
+        var p = genP();
+        var noiseData = [];
 
-    var vertexBufferT = setFloat32Buffer(gl, terraVertices);
-    var indexBufferF = setUInt16Buffer(gl, terraFaces);
+        var elev;
+        var a = .05;
+        var b = 1;
+        var c = 2;
+        var d;
+		for (var j = 0; j < h; j++) {
+			for (var i = 0; i < w; i++) {
+                elev = Math.sqrt(perlin(3 * i / w, 3 * j / h, p, 20) * 10);
+                // d = Math.sqrt(Math.pow(Math.abs(i/w-.5), 2) + Math.pow(Math.abs(j/h-.5), 2))*2;
+                // elev += a - b * Math.pow(d,c);
+                // console.log(d);
+				noiseData.push(elev);
+			}
+		}
 
-    //Main loop -->
-    function updateWebGL() {
+		var minVal = Math.min.apply(null, noiseData);
+        var maxVal = Math.max.apply(null, noiseData);
 
-        resize(gl.canvas);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    
-    	gl.clearColor(0.7, 0.7, 0.7, 1.0);
-    	gl.clear(gl.COLOR_BUFFER_BIT);
-        
-        gl.enable(gl.DEPTH_TEST);
+		var elevData = [];
+        var maxElev = 20;
 
-        var projMat = mat4.create();
-        mat4.perspective(projMat, fov, width/height, 0.1, 100.0);
 
-        gl.useProgram(programTRN);
-        //SETTING UNIFORMS
-        setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
- 
-        setFloatUniform(gl, programTRN, "heading", heading);
+		for (var i = 0; i < noiseData.length; i++) {
+			elevData.push(maxElev * (noiseData[i] - minVal) / (maxVal - minVal));
+		}
 
-        setFloatUniform(gl, programTRN, "phi", phi);
- 
-        setMat4Uniform(gl, programTRN, "mProj", projMat);
-        
-        //SETTING ATTRIBUTES, DRAWING
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferT);
-        var positionLocation = gl.getAttribLocation(programTRN, "position")
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        var verts = [];
+        var indices = [];
+        var tcoords = [];
+        var idx = 0;
+        for (var j=0; j<h-1; j++) {
+            for (var i=0; i<w-1; i++) {
+                verts.push(
+                    i  , elevData[ j   *w + i  ], -j,
+                    i+1, elevData[ j   *w + i+1], -j,
+                    i  , elevData[(j+1)*w + i  ], -(j+1),
+                    i+1, elevData[(j+1)*w + i+1], -(j+1)
+                );
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferF);
-        gl.drawElements(gl.TRIANGLES, terraFaces.length, gl.UNSIGNED_SHORT, 0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+                indices.push(
+                    idx  , idx+1, idx+2,
+                    idx+2, idx+1, idx+3
+                );
+                idx+=4;
 
-        gl.useProgram(null);
-
-    	window.requestAnimationFrame(updateWebGL);
+                tcoords.push(
+                    i*tstep, -j*tstep,
+                    (i+1)*tstep, -j*tstep,
+                    i*tstep, -(j+1)*tstep,
+                    (i+1)*tstep, -(j+1)*tstep
+                );
+            }
+        }
+        // console.log(verts);
+        // console.log(indices);
+        cameraPos = [ndiv/2, ndiv/2, ndiv/2];
+        return {vertices: verts, indices: indices, texture_coords: tcoords};
     }
 
-    window.requestAnimationFrame(updateWebGL);
+    function startWebGL() {
+        // Step 1: Create a LoadQueue object.
+        var queue = new createjs.LoadQueue();
+        // Step 2: Register the callback function.
+        queue.on("complete", function() { runWebGL(queue) }, this);
+        // Step 3: List the files you want to load, with their correponding ID.
+        queue.loadManifest([
+            {
+                id: "grass",
+                src: "data/grass.jpg"
+            },
+        ]);
+    }
+
+    function runWebGL(queue) {
+    var gl = initWebGL(canvas);
+    
+    var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
+
+    programTRN["texture0"] = gl.getUniformLocation(programTRN, "texture0");
+
+    var grassTexture = createTexture(gl, queue.getResult("grass", false));
+    
+        //Main loop -->
+        function updateWebGL() {
+
+            resize(gl.canvas);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        	gl.clearColor(0.7, 0.7, 0.7, 1.0);
+        	gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+
+            var projMat = mat4.create();
+            mat4.perspective(projMat, fov, width/height, 0.1, 100.0);
+
+            gl.useProgram(programTRN);
+            //SETTING UNIFORMS
+            setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
+
+            setFloatUniform(gl, programTRN, "heading", heading);
+
+            setFloatUniform(gl, programTRN, "phi", phi);
+
+            setMat4Uniform(gl, programTRN, "mProj", projMat);
+
+            if (programTRN.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+                gl.uniform1i(programTRN.texture0, 0);
+            }
+            //SETTING ATTRIBUTES, DRAWING
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            var positionLocation = gl.getAttribLocation(programTRN, "position")
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+            var vTL = gl.getAttribLocation(programTRN, "texture_coords");
+            gl.enableVertexAttribArray(vTL);
+            gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            gl.useProgram(null);
+
+        	window.requestAnimationFrame(updateWebGL);
+        }
+        window.requestAnimationFrame(updateWebGL);
+    }
+
+    startWebGL();
+
 </script>
 
 </body>
