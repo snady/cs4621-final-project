@@ -133,7 +133,7 @@
         }else if(event.key == "ArrowRight" ){
             heading -= 0.1;
         }
-    
+
     });
 
     var canvas = $("#webglCanvas");
@@ -410,13 +410,11 @@
         var b = 1;
         var c = 2;
         var d;
+        var redistrib = 5;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
-                elev = Math.sqrt(perlin(3 * i / w, 3 * j / h, p, 20) * 10);
-                // d = Math.sqrt(Math.pow(Math.abs(i/w-.5), 2) + Math.pow(Math.abs(j/h-.5), 2))*2;
-                // elev += a - b * Math.pow(d,c);
-                // console.log(d);
-				noiseData.push(elev);
+                elev = perlin(3 * i / w, 3 * j / h, p, 20);
+				noiseData.push(Math.pow(elev, redistrib));
 			}
 		}
 
@@ -425,7 +423,6 @@
 
 		var elevData = [];
         var maxElev = 20;
-
 
 		for (var i = 0; i < noiseData.length; i++) {
 			elevData.push(maxElev * (noiseData[i] - minVal) / (maxVal - minVal));
@@ -450,8 +447,6 @@
                 idx+=4;
             }
         }
-        // console.log(verts);
-        // console.log(indices);
         return {vertices: verts, indices: indices};
     }
 
