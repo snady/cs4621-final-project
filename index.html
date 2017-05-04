@@ -35,7 +35,8 @@
 <script src="js/jquery-3.1.1.min.js"></script>
 <script src="js/jquery-ui.min.js"></script>
 <script src="js/gl-matrix-min.js"></script>
-<script src="js/math.min.js"></script>
+<script src="js/preloadjs-0.6.2.min.js"></script>
+<script src="js/terrain.js"></script>
 <script src="scenes.js"></script>
 
 
@@ -49,13 +50,15 @@
 
     attribute vec3 position;
     attribute vec2 texture_coords;
+    attribute float a_biome;
 
     uniform vec3 cameraPos;
     uniform float heading;
     uniform float phi;
     uniform mat4 mProj;
 
-   //varying vec2 tcoords;
+    varying vec2 tcoords;
+    varying float biome;
 
     void main() {
         vec3 e = cameraPos;
@@ -76,7 +79,16 @@
             -e.x, -e.y, -e.z, 1.0);
         mat4 mCam = A*B;
 
-       // tcoords = texture_coords;
+        // if (position.y > 6.0) {
+        //     biome = 3.0;
+        // } else if (position.y > 3.0) {
+        //     biome = 2.0;
+        // } else {
+        //     biome = 1.0;
+        // }
+        biome = a_biome;
+
+       tcoords = texture_coords;
        gl_Position = mProj*mCam*vec4(position, 1.0);
 
     }
@@ -86,9 +98,32 @@
 <script id="fragmentTRN" type="x-shader/x-fragment">
     precision highp float;
 
+    #define GRASS 2.0
+    #define DIRT 3.0
+    #define DESERT 1.0
+    #define STONE 4.0
+    #define WATER 0.0
+
+    uniform sampler2D grass;
+    uniform sampler2D dirt;
+    uniform sampler2D desert;
+    uniform sampler2D stone;
+    uniform sampler2D water;
+    varying vec2 tcoords;
+    varying float biome;
     // Main
     void main() {
-        gl_FragColor = vec4(0, 1.0, 0, 1.0);
+        if (biome >= STONE) {
+            gl_FragColor = texture2D(stone, tcoords);
+        } else if (biome >= DIRT) {
+            gl_FragColor = (1.0 - (biome-DIRT)) * texture2D(dirt, tcoords) + (biome-DIRT) * texture2D(stone, tcoords);
+        } else if (biome >= GRASS) {
+            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dirt, tcoords);
+        } else if (biome >= DESERT) {
+            gl_FragColor = (1.0 - (biome-DESERT)) * texture2D(desert, tcoords) + (biome-DESERT) * texture2D(grass, tcoords);
+        } else {
+            gl_FragColor = (1.0 - biome) * texture2D(water, tcoords) + biome * texture2D(desert, tcoords);
+        }
     }
 
 </script>
@@ -103,31 +138,39 @@
     $("#webglCanvas").keydown(function (event) {
 
         if(event.key == "w" || event.key == "s" || event.key == "a" || event.key == "d" || event.key == "Shift" || event.key ==  " "){
-            var w = [-Math.cos(heading), -Math.cos(phi), Math.sin(heading)];
-            var len = Math.sqrt(w[0]*w[0]+w[1]*w[1]+w[2]*w[2]);
-            w = math.divide(w, len);
-            var u = math.cross([0,1,0],w);
-            var v = math.cross(w,u);
+            var w = vec3.create();
+            var u = vec3.create();
+            var v = vec3.create();
+            var cam = vec3.fromValues(cameraPos[0], cameraPos[1], cameraPos[2]);
+            vec3.normalize(w, vec3.fromValues(-Math.cos(heading), -Math.cos(phi), Math.sin(heading)));
+            vec3.cross(u, vec3.fromValues(0,1,0), w);
+            vec3.cross(v, w, u);
 
         }
         //in retrospect I should have used a switch case maybe
         //consider making the speed/accelerations variable
         if(event.key == "w"){
-            cameraPos = math.subtract(cameraPos, math.multiply(w, 0.5));
+            vec3.sub(cam, cam, vec3.scale(w,w,0.5));
+            cameraPos = cam;
         }else if(event.key == "s"){
-            cameraPos = math.add(cameraPos, math.multiply(w, 0.5));
+            vec3.add(cam, cam, vec3.scale(w,w,0.5));
+            cameraPos = cam;
         }else if(event.key == "a"){
-            cameraPos = math.subtract(cameraPos, math.multiply(u, 0.5));
+            vec3.sub(cam, cam, vec3.scale(u,u,0.5));
+            cameraPos = cam;
         }else if(event.key == "d"){
-            cameraPos = math.add(cameraPos, math.multiply(u, 0.5));
+            vec3.add(cam, cam, vec3.scale(u,u,0.5));
+            cameraPos = cam;
         }else if(event.key == "Shift" ){
-            cameraPos = math.subtract(cameraPos, math.multiply(v, 0.5));
+            vec3.sub(cam, cam, vec3.scale(v,v,0.5));
+            cameraPos = cam;
         }else if(event.key == " " ){
-            cameraPos = math.add(cameraPos, math.multiply(v, 0.5));
+            vec3.add(cam, cam, vec3.scale(v,v,0.5));
+            cameraPos = cam;
         }else if(event.key == "ArrowUp" ){
-            phi -= (phi < Math.PI && phi > 0) ? 0.1 : 0 ;
+            phi -= (phi > 0) ? 0.1 : 0 ;
         }else if(event.key == "ArrowDown" ){
-            phi += (phi < Math.PI && phi > 0) ? 0.1 : 0 ;
+            phi += (phi < Math.PI ) ? 0.1 : 0 ;
         }else if(event.key == "ArrowLeft" ){
             heading += 0.1;
         }else if(event.key == "ArrowRight" ){
@@ -266,144 +309,51 @@
       }
     }
 
-    var terrain = generateTerrain();
-
-    // var terraVertices =
-    // [0, 0, 0,
-    // 10, 0, 0,
-    // 10, 0, -10,
-    // 10, 0, -10,
-    // 0, 0, -10,
-    // 0, 0, 0];
-
-    // var terraFaces =
-    // [0, 1, 2,
-    // 3, 4, 5];
-
-    var cameraPos = [50, 30, 15];
+    var cameraPos = [];
     var heading = Math.PI/2
     var phi = 120 * Math.PI/180
     var fov = 45 * Math.PI/180.0
 
+    var terrain = generateTerrain(75, 2);
+
     var width = canvas.width();
     var height = canvas.height();
 
-    var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
+    var vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
+    var indexBuffer = setUInt16Buffer(gl, terrain.indices);
+    var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
+    var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
 
-    var vertexBufferT = setFloat32Buffer(gl, terrain.vertices);
-    var indexBufferF = setUInt16Buffer(gl, terrain.indices);
+    function getBiome(elevation, moisture) {
+        var GRASS = 2.0;
+        var DIRT = 3.0;
+        var DESERT = 1.0;
+        var STONE = 4.0;
+        var WATER = 0.0;
 
-    // Random terrain generation functions
-    function genP() {
-        var p = [];
-
-        for (var i=0; i<256; i++) {
-            p.push(i);
+        if (elevation < .5) {
+            return WATER;
         }
-
-        for (var j=255; j>=0; j--) {
-            var val = Math.floor(Math.random()*j + 1);
-            var temp = p[j];
-            p[j] = p[val];
-            p[val] = temp
-        }
-
-        return p;
-    }
-
-    function noise(x, y, p) {
-        var xi = Math.floor(x & 255);
-        var yi = Math.floor(y & 255);
-
-        var xf = x - Math.floor(x);
-        var yf = y - Math.floor(y);
-
-        var u = fade(xf);
-        var v = fade(yf);
-
-        var a = p[p[ xi]    +  yi];
-        var b = p[p[ xi]    + (yi+1)];
-        var c = p[p[(xi+1)] +  yi];
-        var d = p[p[(xi+1)] + (yi+1)];
-
-        var x1 = lerp(grad(a, xf, yf),     grad(c, xf - 1, yf    ), u);
-        var x2 = lerp(grad(b, xf, yf - 1), grad(d, xf - 1, yf - 1), u);
-
-        return (lerp(x1, x2, v) + 1) / 2;
-    }
-
-    function grad(hash, x, y) {
-        switch (hash & 0xF) {
-            case 0x0:
-                return x + y;
-            case 0x1:
-                return -x + y;
-            case 0x2:
-                return x - y;
-            case 0x3:
-                return -x - y;
-            case 0x4:
-                return y + x;
-            case 0x5:
-                return -y + x;
-            case 0x6:
-                return y - x;
-            case 0x7:
-                return -y - x;
-            case 0x8:
-                return x + y;
-            case 0x9:
-                return -x + y;
-            case 0xA:
-                return x - y;
-            case 0xB:
-                return -x - y;
-            case 0xC:
-                return y + x;
-            case 0xD:
-                return -y + x;
-            case 0xE:
-                return y - x;
-            case 0xF:
-                return -y - x;
-            default:
-                return 0; // never happens
+        var b = elevation * moisture;
+        if (b > 8) {
+            return STONE;
+        } else if (b > 4) {
+            return DIRT;
+        } else if (b > .7) {
+            return GRASS;
+        } else {
+            return DESERT;
         }
     }
 
-    function fade(t) {
-        return 6 * Math.pow(t, 5) - 15 * Math.pow(t, 4) + 10 * Math.pow(t, 3);  // 6t^5 - 15t^4 + 10t^3
-    }
-
-    function lerp(a, b, x) {
-        return a + x * (b - a);
-    }
-
-    function perlin(x, y, p, nOctaves) {
-        var total = 0;
-        var frequency = 1;
-        var amplitude = 1;
-        var maxVal = 0;
-        var persistence = .4;
-
-        for(var i=0; i<nOctaves; i++) {
-            total += noise(x * frequency, y * frequency, p) * amplitude;
-
-            maxVal += amplitude;
-
-            amplitude *= persistence;
-            frequency *= 2;
-        }
-
-        return total/maxVal;
-    }
-
-    function generateTerrain() {
-        var w = 100;
-        var h = 100;
-
+    function generateTerrain(ndiv, ntex) {
+        // var w = 100;
+        // var h = 100;
+        var w = ndiv;
+        var h = ndiv;
+        var tstep = ntex/ndiv;
         var p = genP();
-        var noiseData = [];
+        var elevData = [];
 
         var elev;
         var a = .05;
@@ -414,83 +364,207 @@
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
                 elev = perlin(3 * i / w, 3 * j / h, p, 20);
-				noiseData.push(Math.pow(elev, redistrib));
+				elevData.push(Math.pow(elev, redistrib));
 			}
 		}
 
-		var minVal = Math.min.apply(null, noiseData)
-        var maxVal = Math.max.apply(null, noiseData);
+		var minVal = Math.min.apply(null, elevData);
+        var maxVal = Math.max.apply(null, elevData);
 
-		var elevData = [];
+		var elevation = [];
         var maxElev = 20;
 
-		for (var i = 0; i < noiseData.length; i++) {
-			elevData.push(maxElev * (noiseData[i] - minVal) / (maxVal - minVal));
+		for (var i = 0; i < elevData.length; i++) {
+			elevation.push(maxElev * (elevData[i] - minVal) / (maxVal - minVal));
+		}
+
+        var p2 = genP();
+        var moistureData = [];
+        var moist;
+        var redistrib2 = 3;
+		for (var j = 0; j < h; j++) {
+			for (var i = 0; i < w; i++) {
+                moist = perlin(3 * i / w, 3 * j / h, p2, 20);
+				moistureData.push(Math.pow(moist, redistrib2));
+			}
+		}
+
+        var minVal2 = Math.min.apply(null, moistureData);
+        var maxVal2 = Math.max.apply(null, moistureData);
+
+		var moisture = [];
+
+		for (var i = 0; i < moistureData.length; i++) {
+			moisture.push((moistureData[i] - minVal) / (maxVal - minVal));
 		}
 
         var verts = [];
         var indices = [];
+        var tcoords = [];
+        var biomes = [];
         var idx = 0;
         for (var j=0; j<h-1; j++) {
             for (var i=0; i<w-1; i++) {
                 verts.push(
-                    i  , elevData[ j   *w + i  ], -j,
-                    i+1, elevData[ j   *w + i+1], -j,
-                    i  , elevData[(j+1)*w + i  ], -(j+1),
-                    i+1, elevData[(j+1)*w + i+1], -(j+1)
-                )
+                    i  , elevation[ j   *w + i  ], -j,
+                    i+1, elevation[ j   *w + i+1], -j,
+                    i  , elevation[(j+1)*w + i  ], -(j+1),
+                    i+1, elevation[(j+1)*w + i+1], -(j+1)
+                );
 
                 indices.push(
                     idx  , idx+1, idx+2,
                     idx+2, idx+1, idx+3
-                )
+                );
                 idx+=4;
+
+                tcoords.push(
+                    i*tstep, -j*tstep,
+                    (i+1)*tstep, -j*tstep,
+                    i*tstep, -(j+1)*tstep,
+                    (i+1)*tstep, -(j+1)*tstep
+                );
+                biomes.push(
+                    getBiome(elevation[ j   *w + i  ], moisture[ j   *w + i  ]),
+                    getBiome(elevation[ j   *w + i+1], moisture[ j   *w + i+1]),
+                    getBiome(elevation[(j+1)*w + i  ], moisture[(j+1)*w + i  ]),
+                    getBiome(elevation[(j+1)*w + i+1], moisture[(j+1)*w + i+1])
+                )
             }
         }
-        return {vertices: verts, indices: indices};
+        // console.log(verts);
+        // console.log(indices);
+        cameraPos = [ndiv/2, ndiv/2, ndiv/2];
+        return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
     }
 
-    //Main loop -->
-    function updateWebGL() {
-
-        resize(gl.canvas);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-    	gl.clearColor(0.7, 0.7, 0.7, 1.0);
-    	gl.clear(gl.COLOR_BUFFER_BIT);
-
-        gl.enable(gl.DEPTH_TEST);
-
-        var projMat = mat4.create();
-        mat4.perspective(projMat, fov, width/height, 0.1, 100.0);
-
-        gl.useProgram(programTRN);
-        //SETTING UNIFORMS
-        setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
-
-        setFloatUniform(gl, programTRN, "heading", heading);
-
-        setFloatUniform(gl, programTRN, "phi", phi);
-
-        setMat4Uniform(gl, programTRN, "mProj", projMat);
-
-        //SETTING ATTRIBUTES, DRAWING
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferT);
-        var positionLocation = gl.getAttribLocation(programTRN, "position")
-        gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferF);
-        gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-        gl.useProgram(null);
-
-    	window.requestAnimationFrame(updateWebGL);
+    function startWebGL() {
+        // Step 1: Create a LoadQueue object.
+        var queue = new createjs.LoadQueue();
+        // Step 2: Register the callback function.
+        queue.on("complete", function() { runWebGL(queue) }, this);
+        // Step 3: List the files you want to load, with their correponding ID.
+        queue.loadManifest([
+            {
+                id: "grass",
+                src: "data/grass.jpg"
+            }, {
+                id: "desert",
+                src: "data/desert.jpg"
+            }, {
+                id: "dirt",
+                src: "data/dirt.jpg"
+            }, {
+                id: "stone",
+                src: "data/stone.png"
+            }, {
+                id: "water",
+                src: "data/water.jpg"
+            },
+        ]);
     }
 
-    window.requestAnimationFrame(updateWebGL);
+    function runWebGL(queue) {
+    var gl = initWebGL(canvas);
+
+    var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
+
+    programTRN["texture0"] = gl.getUniformLocation(programTRN, "grass");
+    programTRN["texture1"] = gl.getUniformLocation(programTRN, "dirt");
+    programTRN["texture2"] = gl.getUniformLocation(programTRN, "desert");
+    programTRN["texture3"] = gl.getUniformLocation(programTRN, "stone");
+    programTRN["texture4"] = gl.getUniformLocation(programTRN, "water");
+
+    var grassTexture = createTexture(gl, queue.getResult("grass", false));
+    var desertTexture = createTexture(gl, queue.getResult("desert", false));
+    var dirtTexture = createTexture(gl, queue.getResult("dirt", false));
+    var stoneTexture = createTexture(gl, queue.getResult("stone", false));
+    var waterTexture = createTexture(gl, queue.getResult("water", false));
+
+        //Main loop -->
+        function updateWebGL() {
+
+            resize(gl.canvas);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        	gl.clearColor(0.7, 0.7, 0.7, 1.0);
+        	gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.enable(gl.DEPTH_TEST);
+
+            var projMat = mat4.create();
+            mat4.perspective(projMat, fov, width/height, 0.1, 100.0);
+
+            gl.useProgram(programTRN);
+            //SETTING UNIFORMS
+            setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
+
+            setFloatUniform(gl, programTRN, "heading", heading);
+
+            setFloatUniform(gl, programTRN, "phi", phi);
+
+            setMat4Uniform(gl, programTRN, "mProj", projMat);
+
+            // setIntUniform(gl, programTRN, "biomes", biomes);
+
+            if (programTRN.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+                gl.uniform1i(programTRN.texture0, 0);
+            }
+            if (programTRN.texture1 != null) {
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
+                gl.uniform1i(programTRN.texture1, 1);
+            }
+            if (programTRN.texture2 != null) {
+                gl.activeTexture(gl.TEXTURE2);
+                gl.bindTexture(gl.TEXTURE_2D, desertTexture);
+                gl.uniform1i(programTRN.texture2, 2);
+            }
+            if (programTRN.texture3 != null) {
+                gl.activeTexture(gl.TEXTURE3);
+                gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
+                gl.uniform1i(programTRN.texture3, 3);
+            }
+            if (programTRN.texture4 != null) {
+                gl.activeTexture(gl.TEXTURE4);
+                gl.bindTexture(gl.TEXTURE_2D, waterTexture);
+                gl.uniform1i(programTRN.texture4, 4);
+            }
+
+            //SETTING ATTRIBUTES, DRAWING
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            var positionLocation = gl.getAttribLocation(programTRN, "position")
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+            var vTL = gl.getAttribLocation(programTRN, "texture_coords");
+            gl.enableVertexAttribArray(vTL);
+            gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
+            var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
+            gl.enableVertexAttribArray(biomeLocation);
+            gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            gl.useProgram(null);
+
+        	window.requestAnimationFrame(updateWebGL);
+        }
+        window.requestAnimationFrame(updateWebGL);
+    }
+
+    startWebGL();
+
 </script>
 
 </body>
