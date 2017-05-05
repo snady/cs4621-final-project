@@ -136,7 +136,7 @@
     });
 
     $("#webglCanvas").keydown(function (event) {
-
+        /*
         if(event.key == "w" || event.key == "s" || event.key == "a" || event.key == "d" || event.key == "Shift" || event.key ==  " "){
             var w = vec3.create();
             var u = vec3.create();
@@ -147,8 +147,10 @@
             vec3.cross(v, w, u);
 
         }
+
         //in retrospect I should have used a switch case maybe
         //consider making the speed/accelerations variable
+        /*
         if(event.key == "w"){
             vec3.sub(cam, cam, vec3.scale(w,w,0.5));
             cameraPos = cam;
@@ -176,8 +178,77 @@
         }else if(event.key == "ArrowRight" ){
             heading -= 0.1;
         }
+        */
 
+        var deltav = 0.5;
+        switch(event.key){
+            case "w":
+                velocity[0] = -1.0*deltav;
+                break;
+            case "s":
+                velocity[0] = deltav;
+                break;
+            case "a":
+                velocity[1] = -1.0*deltav;
+                break;
+            case "d":
+                velocity[1] = deltav;
+                break;
+            case "Shift":
+                velocity[2] = -1.0*deltav;
+                break;
+            case " ":
+                velocity[2] = deltav;
+                break;
+            case "ArrowUp":
+                if(phi > 0.0){dphi = -0.05;}else{dphi = 0.0}
+                break;
+            case "ArrowDown":
+                if(phi < Math.PI ){dphi = 0.05;}else{dphi = 0.0}
+                break;
+            case "ArrowLeft":
+                dheading = 0.05;
+                break;
+            case "ArrowRight":
+                dheading = -0.05;
+                break;
+        }
     });
+
+     $("#webglCanvas").keyup(function (event) {
+        switch(event.key){
+            case "w":
+                velocity[0] = 0.0;
+                break;
+            case "s":
+                velocity[0] = 0.0;
+                break;
+            case "a":
+                velocity[1] = 0.0;
+                break;
+            case "d":
+                velocity[1] = 0.0;
+                break;
+            case "Shift":
+                velocity[2] = 0.0;
+                break;
+            case " ":
+                velocity[2] = 0.0;
+                break;
+            case "ArrowUp":
+                dphi = 0.0;
+                break;
+            case "ArrowDown":
+                dphi = 0.0;
+                break;
+            case "ArrowLeft":
+                dheading = 0.0;
+                break;
+            case "ArrowRight":
+                dheading = 0.0;
+                break;
+        }
+     });
 
     var canvas = $("#webglCanvas");
 
@@ -313,6 +384,29 @@
     var heading = Math.PI/2
     var phi = 120 * Math.PI/180
     var fov = 45 * Math.PI/180.0
+    var velocity = [0.0,0.0,0.0]; //w, u and v direction velocities
+    var dheading = 0.0;
+    var dphi = 0.0;
+
+    function updateCam(){
+        var w = vec3.create();
+        var u = vec3.create();
+        var v = vec3.create();
+        var cam = vec3.fromValues(cameraPos[0], cameraPos[1], cameraPos[2]);
+        
+        vec3.normalize(w, vec3.fromValues(-Math.cos(heading), -Math.cos(phi), Math.sin(heading)));
+        vec3.cross(u, vec3.fromValues(0,1,0), w);
+        vec3.cross(v, w, u);
+        
+        if(velocity[0]!=0.0)vec3.add(cam, cam, vec3.scale(w,w,velocity[0]));
+        if(velocity[1]!=0.0)vec3.add(cam, cam, vec3.scale(u,u,velocity[1]));
+        if(velocity[2]!=0.0)vec3.add(cam, cam, vec3.scale(v,v,velocity[2]));
+        //if(performance.now()*100.0%5.0==0.0) console.log(phi+", "+dphi);
+        cameraPos = cam;
+
+        if((phi>0.0&&dphi<0.0) || (phi<Math.PI&&dphi>0.0))phi += dphi;
+        heading += dheading;
+    }
 
     var terrain = generateTerrain(75, 2);
 
@@ -496,6 +590,10 @@
             mat4.perspective(projMat, fov, width/height, 0.1, 100.0);
 
             gl.useProgram(programTRN);
+
+            //update cameraPos
+            updateCam();
+
             //SETTING UNIFORMS
             setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
 
