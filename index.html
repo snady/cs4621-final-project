@@ -264,6 +264,31 @@
         }
      });
 
+    $("#webglCanvas").mousedown(function(event) {
+        var rect = canvas[0].getBoundingClientRect();
+        mouseDownX = event.clientX - rect.left;
+        mouseDownY = event.clientY - rect.top;
+        mouseDown = true;
+        console.log(phi);
+    });
+
+    $("#webglCanvas").mouseup(function(event) {
+        mouseDown = false;
+    });
+
+    $("#webglCanvas").mousemove(function(event) {
+    //console.log(mouseDown);
+        if(mouseDown){
+            
+            var rect = canvas[0].getBoundingClientRect();
+            var mouseX = event.clientX - rect.left;
+            var mouseY = event.clientY - rect.top;
+
+            phi += (-mouseDownY + mouseY)/gl.canvas.height/10.0;
+            heading += (-mouseX + mouseDownX)/gl.canvas.width/10.0;
+        }
+    });
+
     var canvas = $("#webglCanvas");
 
     function initWebGL(webglCanvas){
@@ -402,6 +427,9 @@
     var acceleration = [0.0,0.0,0.0]; //for acceleration
     var dheading = 0.0;
     var dphi = 0.0;
+    var mouseDown = false;
+    var mouseDownX = 0.0;
+    var mouseDownY = 0.0;
 
     function updateCam(){
         var w = vec3.create();
