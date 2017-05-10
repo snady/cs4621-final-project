@@ -138,76 +138,25 @@
     });
 
     $("#webglCanvas").keydown(function (event) {
-
-        /*
-        if(event.key == "w" || event.key == "s" || event.key == "a" || event.key == "d" || event.key == "Shift" || event.key ==  " "){
-            var w = vec3.create();
-            var u = vec3.create();
-            var v = vec3.create();
-            var cam = vec3.fromValues(cameraPos[0], cameraPos[1], cameraPos[2]);
-            vec3.normalize(w, vec3.fromValues(-Math.cos(heading), -Math.cos(phi), Math.sin(heading)));
-            vec3.cross(u, vec3.fromValues(0,1,0), w);
-            vec3.cross(v, w, u);
-
-        }
-
-        //in retrospect I should have used a switch case maybe
-        //consider making the speed/accelerations variable
-        /*
-        if(event.key == "w"){
-            vec3.sub(cam, cam, vec3.scale(w,w,0.5));
-            cameraPos = cam;
-        }else if(event.key == "s"){
-            vec3.add(cam, cam, vec3.scale(w,w,0.5));
-            cameraPos = cam;
-        }else if(event.key == "a"){
-            vec3.sub(cam, cam, vec3.scale(u,u,0.5));
-            cameraPos = cam;
-        }else if(event.key == "d"){
-            vec3.add(cam, cam, vec3.scale(u,u,0.5));
-            cameraPos = cam;
-        }else if(event.key == "Shift" ){
-            vec3.sub(cam, cam, vec3.scale(v,v,0.5));
-            cameraPos = cam;
-        }else if(event.key == " " ){
-            vec3.add(cam, cam, vec3.scale(v,v,0.5));
-            cameraPos = cam;
-        }else if(event.key == "ArrowUp" ){
-            phi -= (phi > 0) ? 0.1 : 0 ;
-        }else if(event.key == "ArrowDown" ){
-            phi += (phi < Math.PI ) ? 0.1 : 0 ;
-        }else if(event.key == "ArrowLeft" ){
-            heading += 0.1;
-        }else if(event.key == "ArrowRight" ){
-            heading -= 0.1;
-        }
-        */
-
         var deltav = 0.5;
         var acc = 0.1;
         switch(event.key){
             case "w":
-                //velocity[0] = -1.0*deltav;
                 acceleration[0] = -1.0*acc;
                 break;
             case "s":
-                //velocity[0] = deltav;
                 acceleration[0] = acc;
                 break;
             case "a":
-                //velocity[1] = -1.0*deltav;
                 acceleration[1] = -1.0*acc;
                 break;
             case "d":
-                //velocity[1] = deltav;
                 acceleration[1] = acc;
                 break;
             case "Shift":
-                //velocity[2] = -1.0*deltav;
                 acceleration[2] = -1.0*acc;
                 break;
             case " ":
-                //velocity[2] = deltav;
                 acceleration[2] = acc;
                 break;
             case "ArrowUp":
@@ -230,27 +179,21 @@
         var dec = 0.05;
         switch(event.key){
             case "w":
-                //velocity[0] = 0.0;
                 acceleration[0] = 0.0;
                 break;
             case "s":
-                //velocity[0] = 0.0;
                 acceleration[0] = 0.0;
                 break;
             case "a":
-                //velocity[1] = 0.0;
                 acceleration[1] = 0.0;
                 break;
             case "d":
-                //velocity[1] = 0.0;
                 acceleration[1] = 0.0;
                 break;
             case "Shift":
-                //velocity[2] = 0.0;
                 acceleration[2] = 0.0;
                 break;
             case " ":
-                //velocity[2] = 0.0;
                 acceleration[2] = 0.0;
                 break;
             case "ArrowUp":
@@ -503,8 +446,6 @@
     }
 
     function generateTerrain(ndiv, ntex) {
-        // var w = 100;
-        // var h = 100;
         var w = ndiv;
         var h = ndiv;
         var tstep = ntex/ndiv;
