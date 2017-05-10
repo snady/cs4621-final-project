@@ -37,13 +37,13 @@
 <script src="js/gl-matrix-min.js"></script>
 <script src="js/preloadjs-0.6.2.min.js"></script>
 <script src="js/terrain.js"></script>
+<script src="js/particle.js"></script>
 <script src="scenes.js"></script>
 
 
 
 
 <!-- Shaders -->
-
 
 <!-- vertex shader -->
 <script id="vertexShaderTRN" type="x-shader/x-vertex">
@@ -130,11 +130,53 @@
 
 </script>
 
+<script id="vertexSNOW" type="x-shader/x-vertex">
+	attribute vec3 position;
+
+    uniform vec3 cameraPos;
+    uniform float heading;
+    uniform float phi;
+    uniform mat4 mProj;
+
+	void main() {
+        vec3 e = cameraPos;
+        vec3 w = normalize(vec3(cos(heading), cos(phi), -sin(heading)) * -1.0);
+        //vec3 w = vec3(0.0, 0.0, 1.0);
+        vec3 u = cross(vec3(0.0, 1.0, 0.0), w);
+        vec3 v = cross(w, u);
+
+        mat4 A = mat4(
+                u.x, v.x, w.x, 0.0,
+                u.y, v.y, w.y, 0.0,
+                u.z, v.z, w.z, 0.0,
+                0.0, 0.0, 0.0, 1.0);
+        mat4 B = mat4(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            -e.x, -e.y, -e.z, 1.0);
+        mat4 mCam = A*B;
+
+		//gl_Position = mProj*mCam*vec4(position, 1.0);
+		gl_Position = vec4(position, 1.0);
+	}
+
+</script>
+
+<script id="fragmentSNOW" type="x-shader/x-fragment">
+    precision highp float;
+
+    void main(){
+    	gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);	
+    }
+
+</script>
+
 
 <script>
 
     $("#webglCanvas").click(function (event) {
-        console.log("clicked");
+        //console.log("clicked");
     });
 
     $("#webglCanvas").keydown(function (event) {
@@ -216,7 +258,7 @@
         mouseDownX = event.clientX - rect.left;
         mouseDownY = event.clientY - rect.top;
         mouseDown = true;
-        console.log(phi);
+        //console.log(phi);
     });
 
     $("#webglCanvas").mouseup(function(event) {
@@ -413,17 +455,7 @@
         heading += dheading;
     }
 
-    var terrain = generateTerrain(75, 2);
-
-    var width = canvas.width();
-    var height = canvas.height();
-
-    var vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
-    var indexBuffer = setUInt16Buffer(gl, terrain.indices);
-    var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
-    var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
-
-    function getBiome(elevation, moisture) {
+        function getBiome(elevation, moisture) {
         var GRASS = 2.0;
         var DIRT = 3.0;
         var DESERT = 1.0;
@@ -531,9 +563,32 @@
         }
         // console.log(verts);
         // console.log(indices);
-        cameraPos = [ndiv/2, ndiv/2, ndiv/2];
+        cameraPos = [ndiv/2, ndiv/2, 0];
         return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
     }
+
+    var terrain = generateTerrain(150, 8);
+
+    var width = canvas.width();
+    var height = canvas.height();
+
+    var vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
+    var indexBuffer = setUInt16Buffer(gl, terrain.indices);
+    var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
+    var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
+
+    //for testing purposes
+    var snowVert = [];
+    var snowIndex = [];
+
+    // addCube(0,0,0,100, snowVert, snowIndex);
+    // addCube(20,20,-20,101, snowVert, snowIndex);
+    cameraPos = [0, 10, 0];
+    snowVert = [0, 0, -10, 10, 0, -10, 10, 20, -10, 0, 20, -10];
+    snowIndex = [0, 1, 2, 2, 1, 0];
+
+    var snowVertBuffer = setFloat32Buffer(gl, snowVert);
+    var snowIndexBuffer = setUInt16Buffer(gl, snowIndex);
 
     function startWebGL() {
         // Step 1: Create a LoadQueue object.
@@ -565,6 +620,7 @@
     var gl = initWebGL(canvas);
 
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
+    var programSNOW = glslProgram("vertexSNOW", "fragmentSNOW");
 
     programTRN["texture0"] = gl.getUniformLocation(programTRN, "grass");
     programTRN["texture1"] = gl.getUniformLocation(programTRN, "dirt");
@@ -590,71 +646,90 @@
             gl.enable(gl.DEPTH_TEST);
 
             var projMat = mat4.create();
-            mat4.perspective(projMat, fov, width/height, 0.1, 100.0);
-
-            gl.useProgram(programTRN);
+            mat4.perspective(projMat, fov, width/height, 0.1, 150.0);
 
             //update cameraPos
             updateCam();
 
+	        // gl.useProgram(programTRN);
+
+	        // //SETTING UNIFORMS
+	        // setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
+	        // setFloatUniform(gl, programTRN, "heading", heading);
+	        // setFloatUniform(gl, programTRN, "phi", phi);
+	        // setMat4Uniform(gl, programTRN, "mProj", projMat);
+
+	        // // setIntUniform(gl, programTRN, "biomes", biomes);
+
+	        // if (programTRN.texture0 != null) {
+	        //     gl.activeTexture(gl.TEXTURE0);
+	        //     gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+	        //     gl.uniform1i(programTRN.texture0, 0);
+	        // }
+	        // if (programTRN.texture1 != null) {
+	        //     gl.activeTexture(gl.TEXTURE1);
+	        //     gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
+	        //     gl.uniform1i(programTRN.texture1, 1);
+	        // }
+	        // if (programTRN.texture2 != null) {
+	        //     gl.activeTexture(gl.TEXTURE2);
+	        //     gl.bindTexture(gl.TEXTURE_2D, desertTexture);
+	        //     gl.uniform1i(programTRN.texture2, 2);
+	        // }
+	        // if (programTRN.texture3 != null) {
+	        //     gl.activeTexture(gl.TEXTURE3);
+	        //     gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
+	        //     gl.uniform1i(programTRN.texture3, 3);
+	        // }
+	        // if (programTRN.texture4 != null) {
+	        //     gl.activeTexture(gl.TEXTURE4);
+	        //     gl.bindTexture(gl.TEXTURE_2D, waterTexture);
+	        //     gl.uniform1i(programTRN.texture4, 4);
+	        // }
+
+	        // //SETTING ATTRIBUTES, DRAWING
+	        // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	        // var positionLocation = gl.getAttribLocation(programTRN, "position")
+	        // gl.enableVertexAttribArray(positionLocation);
+	        // gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+	        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	        // gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+	        // var vTL = gl.getAttribLocation(programTRN, "texture_coords");
+	        // gl.enableVertexAttribArray(vTL);
+	        // gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
+	        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	        // gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
+	        // var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
+	        // gl.enableVertexAttribArray(biomeLocation);
+	        // gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
+	        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+	        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	        // gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
+	        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+	        // gl.useProgram(null);
+
+            //DRAWING SNOW, TESTING
+            gl.useProgram(programSNOW);
+
             //SETTING UNIFORMS
-            setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
+            setVec3Uniform(gl, programSNOW, "cameraPos", cameraPos);
+            setFloatUniform(gl, programSNOW, "heading", heading);
+            setFloatUniform(gl, programSNOW, "phi", phi);
+            setMat4Uniform(gl, programSNOW, "mProj", projMat);
 
-            setFloatUniform(gl, programTRN, "heading", heading);
-
-            setFloatUniform(gl, programTRN, "phi", phi);
-
-            setMat4Uniform(gl, programTRN, "mProj", projMat);
-
-            // setIntUniform(gl, programTRN, "biomes", biomes);
-
-            if (programTRN.texture0 != null) {
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-                gl.uniform1i(programTRN.texture0, 0);
-            }
-            if (programTRN.texture1 != null) {
-                gl.activeTexture(gl.TEXTURE1);
-                gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
-                gl.uniform1i(programTRN.texture1, 1);
-            }
-            if (programTRN.texture2 != null) {
-                gl.activeTexture(gl.TEXTURE2);
-                gl.bindTexture(gl.TEXTURE_2D, desertTexture);
-                gl.uniform1i(programTRN.texture2, 2);
-            }
-            if (programTRN.texture3 != null) {
-                gl.activeTexture(gl.TEXTURE3);
-                gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
-                gl.uniform1i(programTRN.texture3, 3);
-            }
-            if (programTRN.texture4 != null) {
-                gl.activeTexture(gl.TEXTURE4);
-                gl.bindTexture(gl.TEXTURE_2D, waterTexture);
-                gl.uniform1i(programTRN.texture4, 4);
-            }
-
-            //SETTING ATTRIBUTES, DRAWING
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            var positionLocation = gl.getAttribLocation(programTRN, "position")
-            gl.enableVertexAttribArray(positionLocation);
-            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+            //SETTING ATTRIBUTES
+            gl.bindBuffer(gl.ARRAY_BUFFER, snowVertBuffer);
+            var positionLocationS = gl.getAttribLocation(programSNOW, "position")
+            gl.enableVertexAttribArray(positionLocationS);
+            gl.vertexAttribPointer(positionLocationS, 3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
-            var vTL = gl.getAttribLocation(programTRN, "texture_coords");
-            gl.enableVertexAttribArray(vTL);
-            gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
-            var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
-            gl.enableVertexAttribArray(biomeLocation);
-            gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-            gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, snowIndexBuffer);
+            gl.drawElements(gl.TRANGLES, snowIndex.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
             gl.useProgram(null);
