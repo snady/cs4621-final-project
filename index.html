@@ -651,66 +651,66 @@
             //update cameraPos
             updateCam();
 
-	        // gl.useProgram(programTRN);
+	        gl.useProgram(programTRN);
 
-	        // //SETTING UNIFORMS
-	        // setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
-	        // setFloatUniform(gl, programTRN, "heading", heading);
-	        // setFloatUniform(gl, programTRN, "phi", phi);
-	        // setMat4Uniform(gl, programTRN, "mProj", projMat);
+	        //SETTING UNIFORMS
+	        setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
+	        setFloatUniform(gl, programTRN, "heading", heading);
+	        setFloatUniform(gl, programTRN, "phi", phi);
+	        setMat4Uniform(gl, programTRN, "mProj", projMat);
 
-	        // // setIntUniform(gl, programTRN, "biomes", biomes);
+	        // setIntUniform(gl, programTRN, "biomes", biomes);
 
-	        // if (programTRN.texture0 != null) {
-	        //     gl.activeTexture(gl.TEXTURE0);
-	        //     gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-	        //     gl.uniform1i(programTRN.texture0, 0);
-	        // }
-	        // if (programTRN.texture1 != null) {
-	        //     gl.activeTexture(gl.TEXTURE1);
-	        //     gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
-	        //     gl.uniform1i(programTRN.texture1, 1);
-	        // }
-	        // if (programTRN.texture2 != null) {
-	        //     gl.activeTexture(gl.TEXTURE2);
-	        //     gl.bindTexture(gl.TEXTURE_2D, desertTexture);
-	        //     gl.uniform1i(programTRN.texture2, 2);
-	        // }
-	        // if (programTRN.texture3 != null) {
-	        //     gl.activeTexture(gl.TEXTURE3);
-	        //     gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
-	        //     gl.uniform1i(programTRN.texture3, 3);
-	        // }
-	        // if (programTRN.texture4 != null) {
-	        //     gl.activeTexture(gl.TEXTURE4);
-	        //     gl.bindTexture(gl.TEXTURE_2D, waterTexture);
-	        //     gl.uniform1i(programTRN.texture4, 4);
-	        // }
+	        if (programTRN.texture0 != null) {
+	            gl.activeTexture(gl.TEXTURE0);
+	            gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+	            gl.uniform1i(programTRN.texture0, 0);
+	        }
+	        if (programTRN.texture1 != null) {
+	            gl.activeTexture(gl.TEXTURE1);
+	            gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
+	            gl.uniform1i(programTRN.texture1, 1);
+	        }
+	        if (programTRN.texture2 != null) {
+	            gl.activeTexture(gl.TEXTURE2);
+	            gl.bindTexture(gl.TEXTURE_2D, desertTexture);
+	            gl.uniform1i(programTRN.texture2, 2);
+	        }
+	        if (programTRN.texture3 != null) {
+	            gl.activeTexture(gl.TEXTURE3);
+	            gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
+	            gl.uniform1i(programTRN.texture3, 3);
+	        }
+	        if (programTRN.texture4 != null) {
+	            gl.activeTexture(gl.TEXTURE4);
+	            gl.bindTexture(gl.TEXTURE_2D, waterTexture);
+	            gl.uniform1i(programTRN.texture4, 4);
+	        }
 
-	        // //SETTING ATTRIBUTES, DRAWING
-	        // gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-	        // var positionLocation = gl.getAttribLocation(programTRN, "position")
-	        // gl.enableVertexAttribArray(positionLocation);
-	        // gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
-	        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+	        //SETTING ATTRIBUTES, DRAWING
+	        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+	        var positionLocation = gl.getAttribLocation(programTRN, "position")
+	        gl.enableVertexAttribArray(positionLocation);
+	        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-	        // gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
-	        // var vTL = gl.getAttribLocation(programTRN, "texture_coords");
-	        // gl.enableVertexAttribArray(vTL);
-	        // gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
-	        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+	        var vTL = gl.getAttribLocation(programTRN, "texture_coords");
+	        gl.enableVertexAttribArray(vTL);
+	        gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-	        // gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
-	        // var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
-	        // gl.enableVertexAttribArray(biomeLocation);
-	        // gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
-	        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
+	        var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
+	        gl.enableVertexAttribArray(biomeLocation);
+	        gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-	        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	        // gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
-	        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+	        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+	        gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
+	        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-	        // gl.useProgram(null);
+	        gl.useProgram(null);
 
             //DRAWING SNOW, TESTING
             gl.useProgram(programSNOW);
