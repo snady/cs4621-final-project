@@ -1,46 +1,50 @@
 function Particle(x, y, z){
 	this.position = {"x": x, "y": y, "z": z};
 
-	this.velocity = 1;
+	this.velocity = (Math.random()*0.5)+0.1;
 
 	this.update = function(dt, endHeight) {
-		this.position.y -= this.velocity.y * dt;
+		this.position.y -= this.velocity * dt;
 
 	}
 
 }
 
-function Emitter(x, y, z){
+function Emitter(x, y, z, width, height){
 	
 	this.totalParticles = 1000;
 	this.particlePool = [];
+	this.particleSize = 0.5; //arbitrary for now
 
 	this.startHeight = y;
 	this.endHeight = 0;
 
+	this.vertices = [];
+	this.indices = [];
+	this.texture_coords = [];
+
 	for( var i = 0; i < this.totalParticles; i++ ){
-		this.particlePool.push(new Particle(x,y,z));
+		this.particlePool.push(new Particle(Math.random()*width,y,-Math.random()*height));
 	}
 
 	this.update = function(dt) {
+		this.vertices = [];
+		this.indices = [];
+		this.texture_coords = [];
 		for( var ii = 0; ii < this.totalParticles; ii++ ){
 			var particle = this.particlePool[ii];
-			if( particle.position.y <= endHeight ){
-				particle.position.y = startHeight;
+			if( particle.position.y <= this.endHeight ){
+				particle.position.y = this.startHeight;
 			}
 			particle.update(dt);
+			addSquare(particle.position.x, particle.position.y, particle.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords);
 		}
 	}
 }
 
-function addCube(llx, lly, llz, len, vbuffer, ibuffer){
-	var c = vbuffer.length;
-	vbuffer.push(llx, lly, llz, llx+len, lly, llz, llx+len, lly+len, llz, llx, lly+len, llz,
-				llx, lly, llz-len, llx+len, lly, llz-len, llx+len, lly+len, llz-len, llx, lly+len, llz-len);
-	ibuffer.push(c, c+1, c+2, c+2, c+3, c,
-				 c+1, c+5, c+6, c+6, c+2, c+1,
-				 c+5, c+4, c+7, c+7, c+6, c+5,
-				 c+4, c, c+3, c+3, c+7, c+4,
-				 c+3, c+3, c+6, c+6, c+7, c+3,
-				 c+4, c+5, c+1, c+1, c, c+4);
+function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer){
+	var c = vbuffer.length/3;
+	vbuffer.push(llx, lly, llz, llx+len, lly, llz, llx+len, lly+len, llz, llx, lly+len, llz);
+	ibuffer.push(c, c+1, c+2, c+2, c+3, c);
+	tbuffer.push(0,0,1,0,1,1,0,1);
 }

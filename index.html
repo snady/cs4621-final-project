@@ -65,8 +65,8 @@
         //vec3 w = normalize(vec3(cos(heading), cos(phi), -sin(heading)) * -1.0);
         vec3 w = normalize(vec3(sin(phi)*cos(heading), cos(phi), sin(phi)*-sin(heading)) * -1.0);
         //vec3 w = vec3(0.0, 0.0, 1.0);
-
-        vec3 u = cross(vec3(0.0, 1.0, 0.0), w);
+		vec3 up = normalize(vec3(-cos(heading)*cos(phi), sin(phi), sin(heading)*cos(phi)));
+        vec3 u = cross(up, w);
         vec3 v = cross(w, u);
 
         mat4 A = mat4(
@@ -132,17 +132,20 @@
 
 <script id="vertexSNOW" type="x-shader/x-vertex">
 	attribute vec3 position;
+	attribute vec2 texture_coords;
 
     uniform vec3 cameraPos;
     uniform float heading;
     uniform float phi;
     uniform mat4 mProj;
 
+    varying vec2 tcoords;
+
 	void main() {
         vec3 e = cameraPos;
         vec3 w = normalize(vec3(cos(heading), cos(phi), -sin(heading)) * -1.0);
-        //vec3 w = vec3(0.0, 0.0, 1.0);
-        vec3 u = cross(vec3(0.0, 1.0, 0.0), w);
+        vec3 up = normalize(vec3(-cos(heading)*cos(phi), sin(phi), sin(heading)*cos(phi)));
+        vec3 u = cross(up, w);
         vec3 v = cross(w, u);
 
         mat4 A = mat4(
@@ -157,8 +160,21 @@
             -e.x, -e.y, -e.z, 1.0);
         mat4 mCam = A*B;
 
-		//gl_Position = mProj*mCam*vec4(position, 1.0);
-		gl_Position = vec4(position, 1.0);
+        //spherical billboarding 
+        mCam[0][0] = 1.0;
+        mCam[0][1] = 0.0;
+        mCam[0][2] = 0.0;
+
+     	mCam[1][0] = 0.0; 
+	    mCam[1][1] = 1.0; 
+	    mCam[1][2] = 0.0; 
+
+	 	mCam[2][0] = 0.0; 
+	  	mCam[2][1] = 0.0; 
+	  	mCam[2][2] = 1.0; 
+
+	  	tcoords = texture_coords;
+		gl_Position = mProj*mCam*vec4(position, 1.0);
 	}
 
 </script>
@@ -166,8 +182,11 @@
 <script id="fragmentSNOW" type="x-shader/x-fragment">
     precision highp float;
 
+    uniform sampler2D snow;
+    varying vec2 tcoords;
+
     void main(){
-    	gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);	
+    	gl_FragColor = texture2D(snow, tcoords);	
     }
 
 </script>
@@ -425,11 +444,13 @@
         var w = vec3.create();
         var u = vec3.create();
         var v = vec3.create();
+        var up = vec3.create();
+
         var cam = vec3.fromValues(cameraPos[0], cameraPos[1], cameraPos[2]);
         
-        vec3.normalize(w, vec3.fromValues(-Math.cos(heading), -Math.cos(phi), Math.sin(heading)));
-        w = vec3.fromValues(-1*Math.cos(heading)*Math.sin(phi), -1*Math.cos(phi), -1*-Math.sin(heading)*Math.sin(phi));
-        vec3.cross(u, vec3.fromValues(0,1,0), w);
+        vec3.normalize(w, vec3.fromValues(-1*Math.cos(heading)*Math.sin(phi), -1*Math.cos(phi), Math.sin(heading)*Math.sin(phi)));
+        vec3.normalize(up, vec3.fromValues(-1*Math.cos(heading)*Math.cos(phi), Math.sin(phi), Math.sin(heading)*Math.cos(phi)));
+        vec3.cross(u, up, w);
         vec3.cross(v, w, u);
         
         var acc = 0.05;
@@ -567,10 +588,10 @@
         return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
     }
 
-    var terrain = generateTerrain(150, 8);
-
     var width = canvas.width();
     var height = canvas.height();
+
+    var terrain = generateTerrain(150, 8);
 
     var vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
     var indexBuffer = setUInt16Buffer(gl, terrain.indices);
@@ -580,16 +601,26 @@
     //for testing purposes
     var snowVert = [];
     var snowIndex = [];
+    var snowTex = [];
 
-    // addCube(0,0,0,100, snowVert, snowIndex);
-    // addCube(20,20,-20,101, snowVert, snowIndex);
-    cameraPos = [0, 10, 0];
-    snowVert = [0, 0, -10, 10, 0, -10, 10, 20, -10, 0, 20, -10];
-    snowIndex = [0, 1, 2, 2, 1, 0];
+    addSquare(0,0,0,5, snowVert, snowIndex, snowTex);
+    addSquare(20,20,-20,5, snowVert, snowIndex, snowTex);
+    addSquare(50,15,-50,5, snowVert, snowIndex, snowTex);
+    addSquare(100, 15, -60, 5, snowVert, snowIndex, snowTex);
+    addSquare(80, 10, -70, 5, snowVert, snowIndex, snowTex);
 
-    var snowVertBuffer = setFloat32Buffer(gl, snowVert);
-    var snowIndexBuffer = setUInt16Buffer(gl, snowIndex);
+    var emitter = new Emitter(50,50,-50, 150, 150);
 
+    var snowVertBuffer;
+    var snowTexBuffer;
+    var snowIndexBuffer;
+    
+    function updateParticles(emitter){
+    	emitter.update(1);
+    	snowVertBuffer = setFloat32Buffer(gl, emitter.vertices);
+    	snowTexBuffer = setFloat32Buffer(gl, emitter.texture_coords);
+    	snowIndexBuffer = setUInt16Buffer(gl, emitter.indices);
+    }
     function startWebGL() {
         // Step 1: Create a LoadQueue object.
         var queue = new createjs.LoadQueue();
@@ -612,7 +643,10 @@
             }, {
                 id: "water",
                 src: "data/water.jpg"
-            },
+            }, {
+            	id: "snow",
+            	src: "data/snow.png"
+            }
         ]);
     }
 
@@ -628,11 +662,15 @@
     programTRN["texture3"] = gl.getUniformLocation(programTRN, "stone");
     programTRN["texture4"] = gl.getUniformLocation(programTRN, "water");
 
+    programSNOW["texture5"] = gl.getUniformLocation(programSNOW, "snow");
+
     var grassTexture = createTexture(gl, queue.getResult("grass", false));
     var desertTexture = createTexture(gl, queue.getResult("desert", false));
     var dirtTexture = createTexture(gl, queue.getResult("dirt", false));
     var stoneTexture = createTexture(gl, queue.getResult("stone", false));
     var waterTexture = createTexture(gl, queue.getResult("water", false));
+
+    var snowTexture = createTexture(gl, queue.getResult("snow", false));
 
         //Main loop -->
         function updateWebGL() {
@@ -644,12 +682,15 @@
         	gl.clear(gl.COLOR_BUFFER_BIT);
 
             gl.enable(gl.DEPTH_TEST);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        	gl.enable(gl.BLEND);
 
             var projMat = mat4.create();
             mat4.perspective(projMat, fov, width/height, 0.1, 150.0);
 
             //update cameraPos
             updateCam();
+        	updateParticles(emitter);
 
 	        gl.useProgram(programTRN);
 
@@ -715,6 +756,12 @@
             //DRAWING SNOW, TESTING
             gl.useProgram(programSNOW);
 
+            if (programSNOW.texture5 != null) {
+	            gl.activeTexture(gl.TEXTURE5);
+	            gl.bindTexture(gl.TEXTURE_2D, snowTexture);
+	            gl.uniform1i(programSNOW.texture5, 5);
+	        }
+
             //SETTING UNIFORMS
             setVec3Uniform(gl, programSNOW, "cameraPos", cameraPos);
             setFloatUniform(gl, programSNOW, "heading", heading);
@@ -723,13 +770,19 @@
 
             //SETTING ATTRIBUTES
             gl.bindBuffer(gl.ARRAY_BUFFER, snowVertBuffer);
-            var positionLocationS = gl.getAttribLocation(programSNOW, "position")
-            gl.enableVertexAttribArray(positionLocationS);
-            gl.vertexAttribPointer(positionLocationS, 3, gl.FLOAT, false, 3*4, 0);
+            var positionLocation = gl.getAttribLocation(programSNOW, "position")
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
+            gl.bindBuffer(gl.ARRAY_BUFFER, snowTexBuffer);
+	        var vTL = gl.getAttribLocation(programSNOW, "texture_coords");
+	        gl.enableVertexAttribArray(vTL);
+	        gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, snowIndexBuffer);
-            gl.drawElements(gl.TRANGLES, snowIndex.length, gl.UNSIGNED_SHORT, 0);
+            gl.drawElements(gl.TRIANGLES, emitter.indices.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
             gl.useProgram(null);
