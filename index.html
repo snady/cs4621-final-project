@@ -607,17 +607,7 @@
                                               0, 0.5, -74,
                                               0, 0.5, -74,
                                               74, 0.5, 0,
-                                              74, 0.5, -74]
-                                              /*[
-                                              -1.0, -1.0, 0.0,
-                                              1.0, -1.0, 0.0,
-                                              -1.0, 1.0, 0.0,
-                                              -1.0, 1.0, 0.0,
-                                              1.0, -1.0, 0.0,
-                                              1.0, 1.0, 0.0
-                                              ]*/);
-
-
+                                              74, 0.5, -74]);
 
     var width = canvas.width();
     var height = canvas.height();
@@ -711,35 +701,6 @@
                 tcoords.push(i*tstep, -j*tstep);
                 biomes.push(getBiome(elevation[j*w + i], moisture[j*w + i]));
 
-
-/*
-                verts.push(
-                    i  , elevation[ j   *w + i  ], -j,
-                    i+1, elevation[ j   *w + i+1], -j,
-                    i  , elevation[(j+1)*w + i  ], -(j+1),
-                    i+1, elevation[(j+1)*w + i+1], -(j+1)
-                );
-
-                indices.push(
-                    idx  , idx+1, idx+2,
-                    idx+2, idx+1, idx+3
-                );
-                idx+=4;
-
-                tcoords.push(
-                    i*tstep, -j*tstep,
-                    (i+1)*tstep, -j*tstep,
-                    i*tstep, -(j+1)*tstep,
-                    (i+1)*tstep, -(j+1)*tstep
-                );
-                biomes.push(
-                    getBiome(elevation[ j   *w + i  ], moisture[ j   *w + i  ]),
-                    getBiome(elevation[ j   *w + i+1], moisture[ j   *w + i+1]),
-                    getBiome(elevation[(j+1)*w + i  ], moisture[(j+1)*w + i  ]),
-                    getBiome(elevation[(j+1)*w + i+1], moisture[(j+1)*w + i+1])
-                )
-*/
-
             }
         }
 
@@ -756,8 +717,7 @@
                 );
             }
         }
-        // console.log(verts);
-        // console.log(indices);
+
         cameraPos = [ndiv/2, ndiv/2, 0];
         return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
     }
@@ -950,130 +910,9 @@
 
         }
 
-        //SETTING ATTRIBUTES, DRAWING
-        //gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        //var positionLocation = gl.getAttribLocation(programTRN, "position")
-/*=======
-
-        //Main loop -->
-        function updateWebGL() {
-
-            resize(gl.canvas);
-            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
-        	gl.clearColor(0.7, 0.7, 0.7, 1.0);
-        	gl.clear(gl.COLOR_BUFFER_BIT);
-
-            gl.enable(gl.DEPTH_TEST);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        	gl.enable(gl.BLEND);
-
-            var projMat = mat4.create();
-            mat4.perspective(projMat, fov, width/height, 0.1, 150.0);
-
-            //update cameraPos
-            updateCam();
-        	updateParticles(emitter);
-
-	        gl.useProgram(programTRN);
-
-	        //SETTING UNIFORMS
-	        setVec3Uniform(gl, programTRN, "cameraPos", cameraPos);
-	        setFloatUniform(gl, programTRN, "heading", heading);
-	        setFloatUniform(gl, programTRN, "phi", phi);
-	        setMat4Uniform(gl, programTRN, "mProj", projMat);
-
-	        // setIntUniform(gl, programTRN, "biomes", biomes);
-
-	        if (programTRN.texture0 != null) {
-	            gl.activeTexture(gl.TEXTURE0);
-	            gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-	            gl.uniform1i(programTRN.texture0, 0);
-	        }
-	        if (programTRN.texture1 != null) {
-	            gl.activeTexture(gl.TEXTURE1);
-	            gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
-	            gl.uniform1i(programTRN.texture1, 1);
-	        }
-	        if (programTRN.texture2 != null) {
-	            gl.activeTexture(gl.TEXTURE2);
-	            gl.bindTexture(gl.TEXTURE_2D, desertTexture);
-	            gl.uniform1i(programTRN.texture2, 2);
-	        }
-	        if (programTRN.texture3 != null) {
-	            gl.activeTexture(gl.TEXTURE3);
-	            gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
-	            gl.uniform1i(programTRN.texture3, 3);
-	        }
-	        if (programTRN.texture4 != null) {
-	            gl.activeTexture(gl.TEXTURE4);
-	            gl.bindTexture(gl.TEXTURE_2D, waterTexture);
-	            gl.uniform1i(programTRN.texture4, 4);
-	        }
-
-	        //SETTING ATTRIBUTES, DRAWING
-	        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-	        var positionLocation = gl.getAttribLocation(programTRN, "position")
-	        gl.enableVertexAttribArray(positionLocation);
-	        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
-	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-	        gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
-	        var vTL = gl.getAttribLocation(programTRN, "texture_coords");
-	        gl.enableVertexAttribArray(vTL);
-	        gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
-	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-	        gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
-	        var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
-	        gl.enableVertexAttribArray(biomeLocation);
-	        gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
-	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-	        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-	        gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
-	        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-	        gl.useProgram(null);
-
-            //DRAWING SNOW, TESTING
-            gl.useProgram(programSNOW);
-
-            if (programSNOW.texture5 != null) {
-	            gl.activeTexture(gl.TEXTURE5);
-	            gl.bindTexture(gl.TEXTURE_2D, snowTexture);
-	            gl.uniform1i(programSNOW.texture5, 5);
-	        }
-
-            //SETTING UNIFORMS
-            setVec3Uniform(gl, programSNOW, "cameraPos", cameraPos);
-            setFloatUniform(gl, programSNOW, "heading", heading);
-            setFloatUniform(gl, programSNOW, "phi", phi);
-            setMat4Uniform(gl, programSNOW, "mProj", projMat);
-
-            //SETTING ATTRIBUTES
-            gl.bindBuffer(gl.ARRAY_BUFFER, snowVertBuffer);
-            var positionLocation = gl.getAttribLocation(programSNOW, "position")
->>>>>>> f95d9e70c73aec2c4f98fc9f1ebad397194866f3*/
-/*            gl.enableVertexAttribArray(positionLocation);
-            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, snowTexBuffer);
-	        var vTL = gl.getAttribLocation(programSNOW, "texture_coords");
-	        gl.enableVertexAttribArray(vTL);
-	        gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
-	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, snowIndexBuffer);
-            gl.drawElements(gl.TRIANGLES, emitter.indices.length, gl.UNSIGNED_SHORT, 0);
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-        }*/
-
         gl.enable(gl.DEPTH_TEST);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
-
 
         function updateWebGL() {
             var currTime = ((new Date().getTime()) / 1000) - start;
