@@ -22,29 +22,39 @@ function Emitter(x, y, z, width, height){
 	this.vertices = [];
 	this.indices = [];
 	this.texture_coords = [];
+	this.center_coords = [];
+	this.displacements = [];
 
 	for( var i = 0; i < this.totalParticles; i++ ){
-		this.particlePool.push(new Particle(Math.random()*width,y,-Math.random()*height));
+		var p = new Particle(Math.random()*width,y,-Math.random()*height);
+		this.particlePool.push(p);
+		addSquare(p.position.x, p.position.y, p.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords);
 	}
 
 	this.update = function(dt) {
-		this.vertices = [];
-		this.indices = [];
-		this.texture_coords = [];
+		// this.vertices = [];
+		// this.indices = [];
+		// this.texture_coords = [];
+		// this.center_coords = [];
+		var vcount = 0;
 		for( var ii = 0; ii < this.totalParticles; ii++ ){
 			var particle = this.particlePool[ii];
 			if( particle.position.y <= this.endHeight ){
 				particle.position.y = this.startHeight;
 			}
 			particle.update(dt);
-			addSquare(particle.position.x, particle.position.y, particle.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords);
+			//displacements[ii] -= particle.position.y;
+			this.vertices[(vcount*ii)+1] = particle.position.y;
+			// addSquare(particle.position.x, particle.position.y, particle.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords);
 		}
 	}
 }
 
-function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer){
+function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer, cbuffer){
 	var c = vbuffer.length/3;
 	vbuffer.push(llx, lly, llz, llx+len, lly, llz, llx+len, lly+len, llz, llx, lly+len, llz);
 	ibuffer.push(c, c+1, c+2, c+2, c+3, c);
 	tbuffer.push(0,0,1,0,1,1,0,1);
+	cbuffer.push(llx+len/2, lly+len/2, llz, llx+len/2, lly+len/2, llz, llx+len/2, lly+len/2, llz, llx+len/2, lly+len/2, llz);
+	//try to do this without duplicated centers
 }
