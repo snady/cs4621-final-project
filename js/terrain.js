@@ -103,3 +103,4 @@ function perlin(x, y, p, nOctaves) {
 
     return total/maxVal;
 }
+
