@@ -23,7 +23,6 @@ function Emitter(x, y, z, width, height){
 	this.indices = [];
 	this.texture_coords = [];
 	this.center_coords = [];
-	this.displacements = [];
 
 	for( var i = 0; i < this.totalParticles; i++ ){
 		var p = new Particle(Math.random()*width,y,-Math.random()*height);
@@ -32,20 +31,18 @@ function Emitter(x, y, z, width, height){
 	}
 
 	this.update = function(dt) {
-		// this.vertices = [];
-		// this.indices = [];
-		// this.texture_coords = [];
-		// this.center_coords = [];
-		var vcount = 0;
+
 		for( var ii = 0; ii < this.totalParticles; ii++ ){
 			var particle = this.particlePool[ii];
 			if( particle.position.y <= this.endHeight ){
 				particle.position.y = this.startHeight;
 			}
 			particle.update(dt);
-			//displacements[ii] -= particle.position.y;
-			this.vertices[(vcount*ii)+1] = particle.position.y;
-			// addSquare(particle.position.x, particle.position.y, particle.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords);
+
+			this.vertices[(12*ii)+1] = particle.position.y;
+			this.vertices[(12*ii)+4] = particle.position.y;
+			this.vertices[(12*ii)+7] = particle.position.y+this.particleSize;
+			this.vertices[(12*ii)+10] = particle.position.y+this.particleSize;
 		}
 	}
 }
