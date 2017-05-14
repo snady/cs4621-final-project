@@ -185,6 +185,7 @@
 
 <script id="waterVertex" type="x-shader/x-vertex">
     attribute vec3 position;
+    attribute vec2 texture_coords;
 
     uniform mat4 mProj;
     uniform mat4 mCam;
@@ -195,15 +196,17 @@
     void main() {
         clipCoords = mProj*mCam*vec4(position, 1.0);
         gl_Position = clipCoords;
-        texCoords = vec2(position.x/2.0, position.z/2.0);
+        texCoords = 6.0 * texture_coords;
     }
 </script>
 
 <script id="waterFragment" type="x-shader/x-fragment">
     precision highp float;
 
-    uniform sampler2D refraction;
+    uniform sampler2D refractionMap;
     uniform sampler2D dudvMap;
+
+    uniform float moveFactor;
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
@@ -213,12 +216,30 @@
 
         vec2 refractTexCoords = vec2(ndc.x, ndc.y);
 
-        vec2 distortion = 0.3 * ((texture2D(dudvMap, texCoords).rg * 2.0) - 1.0);
+        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.02;
+        vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.02;
+        vec2 distortion = distortion1 + distortion2;
 
         refractTexCoords = refractTexCoords + distortion;
-        vec4 refraction = texture2D(refraction, refractTexCoords);
+        vec4 refractColor = texture2D(refractionMap, refractTexCoords);
 
-        gl_FragColor = mix(refraction, vec4(0.529, 0.808, 0.98, 1.0), 0.5);
+        gl_FragColor = mix(refractColor, vec4(0.529, 0.808, 0.98, 1.0), 0.35);
+
+
+/*        vec2 texCoords1 = vec2(texCoords.x + moveFactor, texCoords.y);
+        vec2 texCoords2 = vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor);
+
+        vec2 distortion1 = 0.3 * ((texture2D(dudvMap, texCoords1).rg * 2.0) - 1.0);
+        vec2 distortion2 = 0.3 * ((texture2D(dudvMap, texCoords2).rg * 2.0) - 1.0);
+        vec2 distortion = distortion1 + distortion2;
+
+        refractTexCoords = refractTexCoords + distortion;
+        vec4 refraction = texture2D(refractionMap, refractTexCoords);
+
+        gl_FragColor = mix(refractionMap, vec4(0.529, 0.808, 0.98, 1.0), 0.35);*/
+
+       //gl_FragColor = mix(texture2D(refractionMap, ndc), vec4(0.529, 0.808, 0.98, 1.0), 0.35);
+
     }
 
 </script>
@@ -254,6 +275,7 @@
         mat4 mCam = A*B;
 
         //spherical billboarding
+        /*
         mCam[0][0] = 1.0;
         mCam[0][1] = 0.0;
         mCam[0][2] = 0.0;
@@ -264,7 +286,7 @@
 
 	 	mCam[2][0] = 0.0;
 	  	mCam[2][1] = 0.0;
-	  	mCam[2][2] = 1.0;
+	  	mCam[2][2] = 1.0;*/
 
 	  	tcoords = texture_coords;
 		gl_Position = mProj*mCam*vec4(position, 1.0);
@@ -603,11 +625,17 @@
 
     var terrain = generateTerrain(75, 2);
     var waterVertices = setFloat32Buffer(gl, [0, 0.5, 0,
+                                              0, 0,
                                               74, 0.5, 0,
+                                              1, 0,
                                               0, 0.5, -74,
+                                              0, 1,
                                               0, 0.5, -74,
+                                              0, 1,
                                               74, 0.5, 0,
-                                              74, 0.5, -74]);
+                                              1, 0,
+                                              74, 0.5, -74,
+                                              1, 1]);
 
     var width = canvas.width();
     var height = canvas.height();
@@ -839,7 +867,7 @@
     programTRN["texture3"] = gl.getUniformLocation(programTRN, "stone");
     programTRN["texture4"] = gl.getUniformLocation(programTRN, "water");
 
-    waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refraction");
+    waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "dudvMap");
     programSNOW["texture5"] = gl.getUniformLocation(programSNOW, "snow");
 
@@ -852,9 +880,20 @@
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
 
-    var start=new Date().getTime() / 1000;
+    //var start=new Date().getSeconds();//new Date().getTime() / 1000;
+    //var frames = 0;
+
+    var lastFrame = new Date();
+    var frameDelta = 0;
+
+    var moveFactor = 0;
+
+    gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.BLEND);
 
         function drawTerrain(mCam, projMat) {
+            gl.useProgram(programTRN);
 
             setMat4Uniform(gl, programTRN, "mProj", projMat);
             setMat4Uniform(gl, programTRN, "mCam", mCam);
@@ -908,15 +947,47 @@
             gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
+            gl.useProgram(null);
         }
 
-        gl.enable(gl.DEPTH_TEST);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.enable(gl.BLEND);
+        function drawWater(mCam, projMat) {
+            gl.useProgram(waterProgram);
+
+            var currFrame = new Date();
+            frameDelta = currFrame - lastFrame;
+            lastFrame = currFrame;
+
+            moveFactor = moveFactor + (0.0001 * frameDelta);
+            moveFactor = moveFactor % 1.0;
+
+            setMat4Uniform(gl, waterProgram, "mProj", projMat);
+            setMat4Uniform(gl, waterProgram, "mCam", mCam);
+            setFloatUniform(gl, waterProgram, "moveFactor", moveFactor);
+
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
+            gl.uniform1i(waterProgram.texture0, 0);
+
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, waterDuDvMap);
+            gl.uniform1i(waterProgram.texture1, 1);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, waterVertices);
+            var posLoc = gl.getAttribLocation(waterProgram, "position")
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 5*4, 0);
+
+            var texLoc = gl.getAttribLocation(waterProgram, "texture_coords")
+            gl.enableVertexAttribArray(texLoc);
+            gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 5*4, 3*4);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.useProgram(null);
+        }
 
         function updateWebGL() {
-            var currTime = ((new Date().getTime()) / 1000) - start;
-
             resize(gl.canvas);
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             var projMat = mat4.create();
@@ -925,15 +996,11 @@
         	gl.clearColor(0.7, 0.7, 0.7, 1.0);
         	gl.clear(gl.COLOR_BUFFER_BIT);
 
-            gl.useProgram(programTRN);
-
             //update cameraPos
             updateCam();
             var mCam = getViewMatrix();
 
             updateParticles(emitter);
-
-
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, refractionFBO);
             // Step 2: Attach the texture to the FBO.
@@ -955,28 +1022,7 @@
 
             drawTerrain(mCam, projMat);
 
-            gl.useProgram(waterProgram);
-
-            setMat4Uniform(gl, waterProgram, "mProj", projMat);
-            setMat4Uniform(gl, waterProgram, "mCam", mCam);
-            setFloatUniform(gl, waterProgram, "time", currTime / 10);
-
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
-            gl.uniform1i(waterProgram.texture0, 0);
-
-            gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, waterDuDvMap);
-            gl.uniform1i(waterProgram.texture1, 1);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, waterVertices);
-            var posLoc = gl.getAttribLocation(waterProgram, "position")
-            gl.enableVertexAttribArray(posLoc);
-            gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 3*4, 0);
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-            gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-            gl.useProgram(null);
+            drawWater(mCam, projMat);
 
             //DRAWING SNOW, TESTING
             gl.useProgram(programSNOW);
@@ -1011,6 +1057,17 @@
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
             gl.useProgram(null);
+
+            /*
+            var currTime = (new Date().getSeconds());
+            if ((currTime - start) != 0) {
+                start = currTime;
+                console.log(frames);
+                frames = 0;
+            }
+            else {
+                frames = frames + 1;
+            }*/
 
 
         	window.requestAnimationFrame(updateWebGL);
