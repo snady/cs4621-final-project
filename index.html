@@ -178,6 +178,66 @@
 
 </script>
 
+<script id="fragmentReflect" type="x-shader/x-fragment">
+    precision highp float;
+
+    #define GRASS 2.0
+    #define DIRT 3.0
+    #define DESERT 1.0
+    #define STONE 4.0
+    #define WATER 0.0
+
+    uniform sampler2D grass;
+    uniform sampler2D dirt;
+    uniform sampler2D desert;
+    uniform sampler2D stone;
+    uniform sampler2D water;
+    varying vec2 tcoords;
+    varying float biome;
+
+    uniform float time;
+    uniform sampler2D waterNormals;
+    uniform vec3 cameraPos;
+    varying vec3 worldCoords;
+
+    vec4 getNoise(vec2 uv){
+        vec2 uv0 = (uv/103.0)+vec2(time/17.0, time/29.0);
+        vec2 uv1 = uv/107.0-vec2(time/-19.0, time/31.0);
+        vec2 uv2 = uv/vec2(897.0, 983.0)+vec2(time/101.0, time/97.0);
+        vec2 uv3 = uv/vec2(991.0, 877.0)-vec2(time/109.0, time/-113.0);
+        vec4 noise = (texture2D(waterNormals, uv0)) +
+                     (texture2D(waterNormals, uv1)) +
+                     (texture2D(waterNormals, uv2)) +
+                     (texture2D(waterNormals, uv3));
+        return noise*0.5-1.0;
+    }
+
+    void sunLight(const vec3 surfaceNormal, const vec3 eyeDirection, float shiny, float spec, float diffuse,
+                  inout vec3 diffuseColor, inout vec3 specularColor){
+        vec3 sunDirection = normalize(vec3(0.5, 0.25, 0.5));
+        vec3 sunColor = vec3(15.3,15.75,25.65);
+        vec3 reflection = normalize(reflect(-sunDirection, surfaceNormal));
+        float direction = max(0.0, dot(eyeDirection, reflection));
+        specularColor += pow(direction, shiny)*sunColor*spec;
+        diffuseColor += max(dot(sunDirection, surfaceNormal),0.0)*sunColor*diffuse;
+    }
+
+    // Main
+    void main() {
+        if (biome >= STONE) {
+            gl_FragColor = texture2D(stone, tcoords);
+        } else if (biome >= DIRT) {
+            gl_FragColor = (1.0 - (biome-DIRT)) * texture2D(dirt, tcoords) + (biome-DIRT) * texture2D(stone, tcoords);
+        } else if (biome >= GRASS) {
+            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dirt, tcoords);
+        } else if (biome >= DESERT) {
+            gl_FragColor = (1.0 - (biome-DESERT)) * texture2D(desert, tcoords) + (biome-DESERT) * texture2D(grass, tcoords);
+        } else {
+            discard;
+        }
+    }
+</script>
+
 <script id="waterVertex" type="x-shader/x-vertex">
     attribute vec3 position;
     attribute vec2 texture_coords;
@@ -189,6 +249,8 @@
     varying vec2 texCoords;
 
     void main() {
+        //gl_Position = vec4(position, 1.0);
+        //texCoords = texture_coords;
         clipCoords = mProj*mCam*vec4(position, 1.0);
         gl_Position = clipCoords;
         texCoords = 6.0 * texture_coords;
@@ -199,6 +261,7 @@
     precision highp float;
 
     uniform sampler2D refractionMap;
+    uniform sampler2D reflectionMap;
     uniform sampler2D dudvMap;
 
     uniform float moveFactor;
@@ -207,9 +270,15 @@
     varying vec2 texCoords;
 
     void main() {
+        //gl_FragColor = texture2D(reflectionMap, texCoords);
+
         vec2 ndc = ((clipCoords.xy/clipCoords.w)/2.0) + 0.5;
 
         vec2 refractTexCoords = vec2(ndc.x, ndc.y);
+        vec2 reflectTexCoords = vec2(ndc.x, -ndc.y);
+
+        //gl_FragColor = vec4(0.529, 0.808, 0.98, 1.0);//texture2D(reflectionMap, reflectTexCoords);
+
 
         vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.02;
         vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.02;
@@ -667,6 +736,19 @@
                                               74, 0.5, -74,
                                               1, 1]);
 
+    /*var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
+                                              0, 0,
+                                              1.0, -1.0, 0,
+                                              1, 0,
+                                              -1.0, 1.0, 0,
+                                              0, 1,
+                                              -1.0, 1.0, 0,
+                                              0, 1,
+                                              1.0, -1.0, 0,
+                                              1, 0,
+                                              1.0, 1.0, 0,
+                                              1, 1]);*/
+
     var width = canvas.width();
     var height = canvas.height();
 
@@ -885,13 +967,16 @@
     resize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    console.log(gl.canvas.width + " " +gl.canvas.height)
     var refractionTexture = createFloatTexture(gl, gl.canvas.width, gl.canvas.height);
     var refractionFBO = gl.createFramebuffer();
+
+    var reflectionTexture = createFloatTexture(gl, gl.canvas.width, gl.canvas.height);
+    var reflectionFBO = gl.createFramebuffer();
 
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
     var waterProgram = glslProgram("waterVertex", "waterFragment");
     var programSNOW = glslProgram("vertexSNOW", "fragmentSNOW");
+    var reflectProgram = glslProgram("vertexShaderTRN", "fragmentReflect");
 
     programTRN["texture0"] = gl.getUniformLocation(programTRN, "grass");
     programTRN["texture1"] = gl.getUniformLocation(programTRN, "dirt");
@@ -899,8 +984,16 @@
     programTRN["texture3"] = gl.getUniformLocation(programTRN, "stone");
     programTRN["texture4"] = gl.getUniformLocation(programTRN, "water");
 
+    reflectProgram["texture0"] = gl.getUniformLocation(reflectProgram, "grass");
+    reflectProgram["texture1"] = gl.getUniformLocation(reflectProgram, "dirt");
+    reflectProgram["texture2"] = gl.getUniformLocation(reflectProgram, "desert");
+    reflectProgram["texture3"] = gl.getUniformLocation(reflectProgram, "stone");
+    reflectProgram["texture4"] = gl.getUniformLocation(reflectProgram, "water");
+
     waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
-    waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "dudvMap");
+    waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
+    waterProgram["texture2"] = gl.getUniformLocation(waterProgram, "dudvMap");
+
     programSNOW["texture5"] = gl.getUniformLocation(programSNOW, "snow");
 
     var grassTexture = createTexture(gl, queue.getResult("grass", false));
@@ -924,53 +1017,53 @@
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
 
-        function drawTerrain(mCam, projMat) {
-            gl.useProgram(programTRN);
+        function drawTerrain(mCam, projMat, program) {
+            gl.useProgram(program);
 
-            setMat4Uniform(gl, programTRN, "mProj", projMat);
-            setMat4Uniform(gl, programTRN, "mCam", mCam);
-            setFloatUniform(gl, programTRN, "time", 200 / 10);
+            setMat4Uniform(gl, program, "mProj", projMat);
+            setMat4Uniform(gl, program, "mCam", mCam);
+            setFloatUniform(gl, program, "time", 200 / 10);
 
-            if (programTRN.texture0 != null) {
+            if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-                gl.uniform1i(programTRN.texture0, 0);
+                gl.uniform1i(program.texture0, 0);
             }
-            if (programTRN.texture1 != null) {
+            if (program.texture1 != null) {
                 gl.activeTexture(gl.TEXTURE1);
                 gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
-                gl.uniform1i(programTRN.texture1, 1);
+                gl.uniform1i(program.texture1, 1);
             }
-            if (programTRN.texture2 != null) {
+            if (program.texture2 != null) {
                 gl.activeTexture(gl.TEXTURE2);
                 gl.bindTexture(gl.TEXTURE_2D, desertTexture);
-                gl.uniform1i(programTRN.texture2, 2);
+                gl.uniform1i(program.texture2, 2);
             }
-            if (programTRN.texture3 != null) {
+            if (program.texture3 != null) {
                 gl.activeTexture(gl.TEXTURE3);
                 gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
-                gl.uniform1i(programTRN.texture3, 3);
+                gl.uniform1i(program.texture3, 3);
             }
-            if (programTRN.texture4 != null) {
+            if (program.texture4 != null) {
                 gl.activeTexture(gl.TEXTURE4);
                 gl.bindTexture(gl.TEXTURE_2D, waterTexture);
-                gl.uniform1i(programTRN.texture4, 4);
+                gl.uniform1i(program.texture4, 4);
             }
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            var positionLocation = gl.getAttribLocation(programTRN, "position")
+            var positionLocation = gl.getAttribLocation(program, "position")
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
-            var vTL = gl.getAttribLocation(programTRN, "texture_coords");
+            var vTL = gl.getAttribLocation(program, "texture_coords");
             gl.enableVertexAttribArray(vTL);
             gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
-            var biomeLocation = gl.getAttribLocation(programTRN, "a_biome");
+            var biomeLocation = gl.getAttribLocation(program, "a_biome");
             gl.enableVertexAttribArray(biomeLocation);
             gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -1001,8 +1094,14 @@
             gl.uniform1i(waterProgram.texture0, 0);
 
             gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, waterDuDvMap);
+            gl.bindTexture(gl.TEXTURE_2D, reflectionTexture);
             gl.uniform1i(waterProgram.texture1, 1);
+
+            if (waterProgram.texture2 != null) {
+                gl.activeTexture(gl.TEXTURE2);
+                gl.bindTexture(gl.TEXTURE_2D, waterDuDvMap);
+                gl.uniform1i(waterProgram.texture2, 2);
+            }
 
             gl.bindBuffer(gl.ARRAY_BUFFER, waterVertices);
             var posLoc = gl.getAttribLocation(waterProgram, "position")
@@ -1017,6 +1116,59 @@
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
             gl.useProgram(null);
+        }
+
+        function drawReflectionTexture(projMat) {
+            var orig_y = cameraPos[1]
+            var vert_d = cameraPos[1] - 0.5;
+            cameraPos[1] = cameraPos[1] - (2*vert_d);
+
+            var orig_phi = phi;
+            var diff = phi - (Math.PI / 2.0);
+            phi = (Math.PI / 2.0) - diff;
+
+            var mCam = getViewMatrix();
+
+            gl.bindFramebuffer(gl.FRAMEBUFFER, reflectionFBO);
+            // Step 2: Attach the texture to the FBO.
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, reflectionTexture, 0
+            );
+
+            {
+                gl.clearColor(0.53, 0.81, 0.98, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                drawTerrain(mCam, projMat, reflectProgram);
+                gl.flush();
+            }
+
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
+            );
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            cameraPos[1] = orig_y;
+            phi = orig_phi;
+        }
+
+        function drawRefractionTexture(mCam, projMat) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, refractionFBO);
+            // Step 2: Attach the texture to the FBO.
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, refractionTexture, 0
+            );
+
+            {
+                gl.clearColor(0.7, 0.7, 0.7, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                drawTerrain(mCam, projMat, programTRN);
+                gl.flush();
+            }
+
+            gl.framebufferTexture2D(
+                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
+            );
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         }
 
         function updateWebGL() {
@@ -1034,25 +1186,10 @@
 
             updateParticles(emitter);
 
-            gl.bindFramebuffer(gl.FRAMEBUFFER, refractionFBO);
-            // Step 2: Attach the texture to the FBO.
-            gl.framebufferTexture2D(
-                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, refractionTexture, 0
-            );
+            drawReflectionTexture(projMat);
+            drawRefractionTexture(mCam, projMat);
 
-            {
-                gl.clearColor(0.7, 0.7, 0.7, 1.0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-                drawTerrain(mCam, projMat);
-                gl.flush();
-            }
-
-            gl.framebufferTexture2D(
-                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
-            );
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-            drawTerrain(mCam, projMat);
+            drawTerrain(mCam, projMat, programTRN);
 
             drawWater(mCam, projMat);
 
