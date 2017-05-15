@@ -110,69 +110,32 @@
     precision highp float;
 
     #define GRASS 2.0
-    #define DIRT 3.0
-    #define DESERT 1.0
-    #define STONE 4.0
-    #define WATER 0.0
+    #define STONE 3.0
+    #define SAND 1.0
+    #define MT_SNOW 4.0
 
     uniform sampler2D grass;
-    uniform sampler2D dirt;
-    uniform sampler2D desert;
     uniform sampler2D stone;
-    uniform sampler2D water;
+    uniform sampler2D sand;
+    uniform sampler2D mtSnow;
     varying vec2 tcoords;
     varying float biome;
 
-    uniform float time;
-    uniform sampler2D waterNormals;
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
 
-    vec4 getNoise(vec2 uv){
-        vec2 uv0 = (uv/103.0)+vec2(time/17.0, time/29.0);
-        vec2 uv1 = uv/107.0-vec2(time/-19.0, time/31.0);
-        vec2 uv2 = uv/vec2(897.0, 983.0)+vec2(time/101.0, time/97.0);
-        vec2 uv3 = uv/vec2(991.0, 877.0)-vec2(time/109.0, time/-113.0);
-        vec4 noise = (texture2D(waterNormals, uv0)) +
-                     (texture2D(waterNormals, uv1)) +
-                     (texture2D(waterNormals, uv2)) +
-                     (texture2D(waterNormals, uv3));
-        return noise*0.5-1.0;
-    }
-
-    void sunLight(const vec3 surfaceNormal, const vec3 eyeDirection, float shiny, float spec, float diffuse,
-                  inout vec3 diffuseColor, inout vec3 specularColor){
-        vec3 sunDirection = normalize(vec3(0.5, 0.25, 0.5));
-        vec3 sunColor = vec3(15.3,15.75,25.65);
-        vec3 reflection = normalize(reflect(-sunDirection, surfaceNormal));
-        float direction = max(0.0, dot(eyeDirection, reflection));
-        specularColor += pow(direction, shiny)*sunColor*spec;
-        diffuseColor += max(dot(sunDirection, surfaceNormal),0.0)*sunColor*diffuse;
-    }
-
     // Main
     void main() {
-        if (biome >= STONE) {
-            gl_FragColor = texture2D(stone, tcoords);
-        } else if (biome >= DIRT) {
-            gl_FragColor = (1.0 - (biome-DIRT)) * texture2D(dirt, tcoords) + (biome-DIRT) * texture2D(stone, tcoords);
+        if (biome >= MT_SNOW) {
+            gl_FragColor = texture2D(mtSnow, tcoords);
+        } else if (biome >= STONE) {
+            gl_FragColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
         } else if (biome >= GRASS) {
-            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dirt, tcoords);
-        } else if (biome >= DESERT) {
-            gl_FragColor = (1.0 - (biome-DESERT)) * texture2D(desert, tcoords) + (biome-DESERT) * texture2D(grass, tcoords);
+            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(stone, tcoords);
+        } else if (biome >= SAND) {
+            gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
-            gl_FragColor = (1.0 - biome) * texture2D(desert, tcoords) + biome * texture2D(desert, tcoords);
-            /*vec4 noise = getNoise(worldCoords.xz);
-            vec3 surfaceNormal = normalize(noise.xzy*vec3(2.0, 1.0, 2.0));
-
-            vec3 diffuse = vec3(0.0);
-            vec3 specular = vec3(0.0);
-
-            vec3 worldToEye = cameraPos-worldCoords;
-            vec3 eyeDirection = normalize(worldToEye);
-            sunLight(surfaceNormal, eyeDirection, 35.0, 2.0, 0.5, diffuse, specular);
-
-            gl_FragColor = vec4((diffuse+specular+vec3(0.1))*vec3(0.3, 0.5, 0.9), 1.0);*/
+            gl_FragColor = (1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords);
         }
     }
 
@@ -182,56 +145,30 @@
     precision highp float;
 
     #define GRASS 2.0
-    #define DIRT 3.0
-    #define DESERT 1.0
-    #define STONE 4.0
-    #define WATER 0.0
+    #define STONE 3.0
+    #define SAND 1.0
+    #define MT_SNOW 4.0
 
     uniform sampler2D grass;
-    uniform sampler2D dirt;
-    uniform sampler2D desert;
     uniform sampler2D stone;
-    uniform sampler2D water;
+    uniform sampler2D sand;
+    uniform sampler2D mtSnow;
     varying vec2 tcoords;
     varying float biome;
 
-    uniform float time;
-    uniform sampler2D waterNormals;
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
 
-    vec4 getNoise(vec2 uv){
-        vec2 uv0 = (uv/103.0)+vec2(time/17.0, time/29.0);
-        vec2 uv1 = uv/107.0-vec2(time/-19.0, time/31.0);
-        vec2 uv2 = uv/vec2(897.0, 983.0)+vec2(time/101.0, time/97.0);
-        vec2 uv3 = uv/vec2(991.0, 877.0)-vec2(time/109.0, time/-113.0);
-        vec4 noise = (texture2D(waterNormals, uv0)) +
-                     (texture2D(waterNormals, uv1)) +
-                     (texture2D(waterNormals, uv2)) +
-                     (texture2D(waterNormals, uv3));
-        return noise*0.5-1.0;
-    }
-
-    void sunLight(const vec3 surfaceNormal, const vec3 eyeDirection, float shiny, float spec, float diffuse,
-                  inout vec3 diffuseColor, inout vec3 specularColor){
-        vec3 sunDirection = normalize(vec3(0.5, 0.25, 0.5));
-        vec3 sunColor = vec3(15.3,15.75,25.65);
-        vec3 reflection = normalize(reflect(-sunDirection, surfaceNormal));
-        float direction = max(0.0, dot(eyeDirection, reflection));
-        specularColor += pow(direction, shiny)*sunColor*spec;
-        diffuseColor += max(dot(sunDirection, surfaceNormal),0.0)*sunColor*diffuse;
-    }
-
     // Main
     void main() {
-        if (biome >= STONE) {
-            gl_FragColor = texture2D(stone, tcoords);
-        } else if (biome >= DIRT) {
-            gl_FragColor = (1.0 - (biome-DIRT)) * texture2D(dirt, tcoords) + (biome-DIRT) * texture2D(stone, tcoords);
+        if (biome >= MT_SNOW) {
+            gl_FragColor = texture2D(mtSnow, tcoords);
+        } else if (biome >= STONE) {
+            gl_FragColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
         } else if (biome >= GRASS) {
-            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dirt, tcoords);
-        } else if (biome >= DESERT) {
-            gl_FragColor = (1.0 - (biome-DESERT)) * texture2D(desert, tcoords) + (biome-DESERT) * texture2D(grass, tcoords);
+            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(stone, tcoords);
+        } else if (biome >= SAND) {
+            gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
             discard;
         }
@@ -722,7 +659,7 @@
         heading += dheading;
     }
 
-    var terrain = generateTerrain(75, 2);
+    var terrain = generateTerrain(225, 2);
     var waterVertices = setFloat32Buffer(gl, [0, 0.5, 0,
                                               0, 0,
                                               74, 0.5, 0,
@@ -759,30 +696,26 @@
 
     function getBiome(elevation, moisture) {
         var GRASS = 2.0;
-        var DIRT = 3.0;
-        var DESERT = 1.0;
-        var STONE = 4.0;
-        var WATER = 0.0;
+        var STONE = 3.0;
+        var SAND = 1.0;
+        var MT_SNOW = 4.0;
 
-        if (elevation < .5) {
-            return WATER;
-        }
         var b = elevation * moisture;
         if (b > 8) {
+            return MT_SNOW;
+        } else if (b > 2) {
             return STONE;
-        } else if (b > 4) {
-            return DIRT;
-        } else if (b > .7) {
+        } else if (b > .8) {
             return GRASS;
         } else {
-            return DESERT;
+            return SAND;
         }
     }
 
     function generateTerrain(ndiv, ntex) {
         var w = ndiv;
         var h = ndiv;
-        var tstep = ntex/ndiv;
+        var tstep = ntex/(ndiv/10.0);
         var p = genP();
         var elevData = [];
 
@@ -791,11 +724,15 @@
         var b = 1;
         var c = 2;
         var d;
-        var redistrib = 5;
+        var redistrib = 8;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
-                elev = perlin(3 * i / w, 3 * j / h, p, 20);
-				elevData.push(Math.pow(elev, redistrib));
+                elev = perlin(2 * i / w, 2 * j / h, p, 20);
+                elev = Math.pow(Math.sin(1.5*elev), redistrib);
+                // if (elev > .5) {
+                //     elev = Math.pow(elev, -redistrib) / 2.0;
+                // }
+                elevData.push(elev);
 			}
 		}
 
@@ -803,7 +740,7 @@
         var maxVal = Math.max.apply(null, elevData);
 
 		var elevation = [];
-        var maxElev = 20;
+        var maxElev = 15;
 
 		for (var i = 0; i < elevData.length; i++) {
 			elevation.push(maxElev * (elevData[i] - minVal) / (maxVal - minVal));
@@ -812,10 +749,10 @@
         var p2 = genP();
         var moistureData = [];
         var moist;
-        var redistrib2 = 3;
+        var redistrib2 = 2;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
-                moist = perlin(3 * i / w, 3 * j / h, p2, 20);
+                moist = perlin(4 * i / w, 4 * j / h, p2, 5);
 				moistureData.push(Math.pow(moist, redistrib2));
 			}
 		}
@@ -837,7 +774,7 @@
 
         for (var j=0; j<h; j++) {
             for (var i=0; i<w; i++) {
-                verts.push(i, elevation[j*w +i], -j);
+                verts.push(i/3.0, elevation[j*w +i], -j/3.0);
                 tcoords.push(i*tstep, -j*tstep);
                 biomes.push(getBiome(elevation[j*w + i], moisture[j*w + i]));
 
@@ -935,20 +872,26 @@
                 id: "grass",
                 src: "data/grass.jpg"
             }, {
-                id: "desert",
-                src: "data/desert.jpg"
+                id: "grassNormals",
+                src: "data/grass_norm.jpg"
             }, {
-                id: "dirt",
-                src: "data/dirt.jpg"
+                id: "sand",
+                src: "data/sand.png"
+            }, {
+                id: "sandNormals",
+                src: "data/sand_norm.png"
             }, {
                 id: "stone",
-                src: "data/stone.png"
+                src: "data/stone.jpg"
             }, {
-                id: "water",
-                src: "data/water.jpg"
+                id: "stoneNormals",
+                src: "data/stone_norm.jpg"
             }, {
-                id: "waterNormals",
-                src: "data/waterNormals.png"
+                id: "mtSnow",
+                src: "data/mtSnow.jpg"
+            }, {
+                id: "mtSnowNormals",
+                src: "data/mtSnow_norm.jpg"
             }, {
                 id: "waterDUDV",
                 src: "data/waterDUDV.png"
@@ -979,16 +922,14 @@
     var reflectProgram = glslProgram("vertexShaderTRN", "fragmentReflect");
 
     programTRN["texture0"] = gl.getUniformLocation(programTRN, "grass");
-    programTRN["texture1"] = gl.getUniformLocation(programTRN, "dirt");
-    programTRN["texture2"] = gl.getUniformLocation(programTRN, "desert");
-    programTRN["texture3"] = gl.getUniformLocation(programTRN, "stone");
-    programTRN["texture4"] = gl.getUniformLocation(programTRN, "water");
+    programTRN["texture1"] = gl.getUniformLocation(programTRN, "stone");
+    programTRN["texture2"] = gl.getUniformLocation(programTRN, "sand");
+    programTRN["texture3"] = gl.getUniformLocation(programTRN, "mtSnow");
 
     reflectProgram["texture0"] = gl.getUniformLocation(reflectProgram, "grass");
-    reflectProgram["texture1"] = gl.getUniformLocation(reflectProgram, "dirt");
-    reflectProgram["texture2"] = gl.getUniformLocation(reflectProgram, "desert");
-    reflectProgram["texture3"] = gl.getUniformLocation(reflectProgram, "stone");
-    reflectProgram["texture4"] = gl.getUniformLocation(reflectProgram, "water");
+    reflectProgram["texture1"] = gl.getUniformLocation(reflectProgram, "stone");
+    reflectProgram["texture2"] = gl.getUniformLocation(reflectProgram, "sand");
+    reflectProgram["texture3"] = gl.getUniformLocation(reflectProgram, "mtSnow");
 
     waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
@@ -997,10 +938,14 @@
     programSNOW["texture5"] = gl.getUniformLocation(programSNOW, "snow");
 
     var grassTexture = createTexture(gl, queue.getResult("grass", false));
-    var desertTexture = createTexture(gl, queue.getResult("desert", false));
-    var dirtTexture = createTexture(gl, queue.getResult("dirt", false));
+    var sandTexture = createTexture(gl, queue.getResult("sand", false));
     var stoneTexture = createTexture(gl, queue.getResult("stone", false));
-    var waterTexture = createTexture(gl, queue.getResult("water", false));
+    var mtSnowTexture = createTexture(gl, queue.getResult("mtSnow", false));
+
+    var grassNormals = createTexture(gl, queue.getResult("grassNormals", false));
+    var sandNormals = createTexture(gl, queue.getResult("sandNormals", false));
+    var stoneNormals = createTexture(gl, queue.getResult("stoneNormals", false));
+    var stoneNormals = createTexture(gl, queue.getResult("mtSnowNormals", false));
 
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
@@ -1031,23 +976,19 @@
             }
             if (program.texture1 != null) {
                 gl.activeTexture(gl.TEXTURE1);
-                gl.bindTexture(gl.TEXTURE_2D, dirtTexture);
-                gl.uniform1i(program.texture1, 1);
+
+                gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
+                gl.uniform1i(programTRN.texture1, 1);
             }
             if (program.texture2 != null) {
                 gl.activeTexture(gl.TEXTURE2);
-                gl.bindTexture(gl.TEXTURE_2D, desertTexture);
-                gl.uniform1i(program.texture2, 2);
+                gl.bindTexture(gl.TEXTURE_2D, sandTexture);
+                gl.uniform1i(programTRN.texture2, 2);
             }
             if (program.texture3 != null) {
                 gl.activeTexture(gl.TEXTURE3);
-                gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
-                gl.uniform1i(program.texture3, 3);
-            }
-            if (program.texture4 != null) {
-                gl.activeTexture(gl.TEXTURE4);
-                gl.bindTexture(gl.TEXTURE_2D, waterTexture);
-                gl.uniform1i(program.texture4, 4);
+                gl.bindTexture(gl.TEXTURE_2D, mtSnowTexture);
+                gl.uniform1i(programTRN.texture3, 3);
             }
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -1186,7 +1127,7 @@
 
             updateParticles(emitter);
 
-            drawReflectionTexture(projMat);
+            //drawReflectionTexture(projMat);
             drawRefractionTexture(mCam, projMat);
 
             drawTerrain(mCam, projMat, programTRN);
