@@ -135,7 +135,7 @@
         } else if (biome >= SAND) {
             gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
-            discard;
+            gl_FragColor = (1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords);
         }
     }
 
