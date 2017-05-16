@@ -171,6 +171,7 @@
             gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
             discard;
+            //gl_FragColor = vec4(0.1,0.2,0.2,1.0);
         }
     }
 </script>
@@ -212,11 +213,11 @@
         vec2 ndc = ((clipCoords.xy/clipCoords.w)/2.0) + 0.5;
 
         vec2 refractTexCoords = vec2(ndc.x, ndc.y);
-        vec2 reflectTexCoords = vec2(ndc.x, -ndc.y);
+        vec2 reflectTexCoords = vec2(ndc.x, ndc.y);
 
-        //gl_FragColor = vec4(0.529, 0.808, 0.98, 1.0);//texture2D(reflectionMap, reflectTexCoords);
+        gl_FragColor = texture2D(reflectionMap, reflectTexCoords);
 
-
+/*
         vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.02;
         vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.02;
         vec2 distortion = distortion1 + distortion2;
@@ -225,7 +226,7 @@
         vec4 refractColor = texture2D(refractionMap, refractTexCoords);
 
         gl_FragColor = mix(refractColor, vec4(0.529, 0.808, 0.98, 1.0), 0.35);
-
+*/
 
 /*        vec2 texCoords1 = vec2(texCoords.x + moveFactor, texCoords.y);
         vec2 texCoords2 = vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor);
@@ -976,19 +977,18 @@
             }
             if (program.texture1 != null) {
                 gl.activeTexture(gl.TEXTURE1);
-
                 gl.bindTexture(gl.TEXTURE_2D, stoneTexture);
-                gl.uniform1i(programTRN.texture1, 1);
+                gl.uniform1i(program.texture1, 1);
             }
             if (program.texture2 != null) {
                 gl.activeTexture(gl.TEXTURE2);
                 gl.bindTexture(gl.TEXTURE_2D, sandTexture);
-                gl.uniform1i(programTRN.texture2, 2);
+                gl.uniform1i(program.texture2, 2);
             }
             if (program.texture3 != null) {
                 gl.activeTexture(gl.TEXTURE3);
                 gl.bindTexture(gl.TEXTURE_2D, mtSnowTexture);
-                gl.uniform1i(programTRN.texture3, 3);
+                gl.uniform1i(program.texture3, 3);
             }
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -1127,12 +1127,12 @@
 
             updateParticles(emitter);
 
-            //drawReflectionTexture(projMat);
+            drawReflectionTexture(projMat);
             drawRefractionTexture(mCam, projMat);
 
-            drawTerrain(mCam, projMat, programTRN);
+           drawTerrain(mCam, projMat, reflectProgram);
 
-            drawWater(mCam, projMat);
+            //drawWater(mCam, projMat);
 
             //DRAWING SNOW, TESTING
             gl.useProgram(programSNOW);
