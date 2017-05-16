@@ -135,7 +135,7 @@
         } else if (biome >= SAND) {
             gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
-            gl_FragColor = (1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords);
+            discard;
         }
     }
 
@@ -661,17 +661,17 @@
     }
 
     var terrain = generateTerrain(225, 2);
-    var waterVertices = setFloat32Buffer(gl, [0, 0.5, 0,
+    var waterVertices = setFloat32Buffer(gl, [0, 1, 0,
                                               0, 0,
-                                              74, 0.5, 0,
+                                              74, 1, 0,
                                               1, 0,
-                                              0, 0.5, -74,
+                                              0, 1, -74,
                                               0, 1,
-                                              0, 0.5, -74,
+                                              0, 1, -74,
                                               0, 1,
-                                              74, 0.5, 0,
+                                              74, 1, 0,
                                               1, 0,
-                                              74, 0.5, -74,
+                                              74, 1, -74,
                                               1, 1]);
 
     /*var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
@@ -700,13 +700,17 @@
         var STONE = 3.0;
         var SAND = 1.0;
         var MT_SNOW = 4.0;
+        var WATER = 0.0;
 
+        if (elevation < 1.0) {
+            return WATER;
+        }
         var b = elevation * moisture;
         if (b > 8) {
             return MT_SNOW;
         } else if (b > 2) {
             return STONE;
-        } else if (b > .8) {
+        } else if (b > 1.1) {
             return GRASS;
         } else {
             return SAND;
