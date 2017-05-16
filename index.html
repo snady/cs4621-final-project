@@ -135,7 +135,7 @@
         } else if (biome >= SAND) {
             gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
-            gl_FragColor = (1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords);
+            discard;
         }
     }
 
@@ -699,7 +699,11 @@
         var STONE = 3.0;
         var SAND = 1.0;
         var MT_SNOW = 4.0;
+        var WATER = 0.0;
 
+        if (elevation < 1.0) {
+            return WATER;
+        }
         var b = elevation * moisture;
         if (b > 8) {
             return MT_SNOW;
