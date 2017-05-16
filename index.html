@@ -110,11 +110,13 @@
     precision highp float;
 
     #define GRASS 2.0
-    #define STONE 3.0
+    #define DRY_GRASS 3.0
+    #define STONE 4.0
     #define SAND 1.0
-    #define MT_SNOW 4.0
+    #define MT_SNOW 5.0
 
     uniform sampler2D grass;
+    uniform sampler2D dryGrass;
     uniform sampler2D stone;
     uniform sampler2D sand;
     uniform sampler2D mtSnow;
@@ -130,8 +132,10 @@
             gl_FragColor = texture2D(mtSnow, tcoords);
         } else if (biome >= STONE) {
             gl_FragColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
+        } else if (biome >= DRY_GRASS) {
+            gl_FragColor = (1.0 - (biome-DRY_GRASS)) * texture2D(dryGrass, tcoords) + (biome-DRY_GRASS) * texture2D(stone, tcoords);
         } else if (biome >= GRASS) {
-            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(stone, tcoords);
+            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dryGrass, tcoords);
         } else if (biome >= SAND) {
             gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
@@ -145,11 +149,13 @@
     precision highp float;
 
     #define GRASS 2.0
-    #define STONE 3.0
+    #define DRY_GRASS 3.0
+    #define STONE 4.0
     #define SAND 1.0
-    #define MT_SNOW 4.0
+    #define MT_SNOW 5.0
 
     uniform sampler2D grass;
+    uniform sampler2D dryGrass;
     uniform sampler2D stone;
     uniform sampler2D sand;
     uniform sampler2D mtSnow;
@@ -159,20 +165,36 @@
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
 
+    uniform sampler2D density;
+
     // Main
     void main() {
+        vec4 sceneColor;
         if (biome >= MT_SNOW) {
-            gl_FragColor = texture2D(mtSnow, tcoords);
+            sceneColor = texture2D(mtSnow, tcoords);
         } else if (biome >= STONE) {
-            gl_FragColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
+            sceneColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
+        } else if (biome >= DRY_GRASS) {
+            sceneColor = (1.0 - (biome-DRY_GRASS)) * texture2D(dryGrass, tcoords) + (biome-DRY_GRASS) * texture2D(stone, tcoords);
         } else if (biome >= GRASS) {
-            gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(stone, tcoords);
+            sceneColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dryGrass, tcoords);
         } else if (biome >= SAND) {
-            gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
+            sceneColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
         } else {
             discard;
             //gl_FragColor = vec4(0.1,0.2,0.2,1.0);
         }
+
+        vec3 dir = (cameraPos - worldCoords);
+        float distance = length(dir);
+        float b1 = 0.02;
+        float b2 = 0.03;
+        float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y);
+        float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y);
+        vec3 fogColor = vec3(0.65,0.65,0.65);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
+        // gl_FragColor = texture2D(density, tcoords);
+        gl_FragColor.a = sceneColor.a;
     }
 </script>
 
@@ -334,6 +356,11 @@
 
 </script>
 
+<script id="vertexFog" type="x-shader/x-vertex">
+</script>
+
+<script id="fragmentFog" type="x-shader/x-fragment">
+</script>
 
 <script>
 
@@ -661,6 +688,7 @@
     }
 
     var terrain = generateTerrain(225, 2);
+
     var waterVertices = setFloat32Buffer(gl, [0, 1, 0,
                                               0, 0,
                                               74, 1, 0,
@@ -697,19 +725,22 @@
 
     function getBiome(elevation, moisture) {
         var GRASS = 2.0;
-        var STONE = 3.0;
+        var DRY_GRASS = 3.0;
+        var STONE = 4.0;
         var SAND = 1.0;
-        var MT_SNOW = 4.0;
+        var MT_SNOW = 5.0;
         var WATER = 0.0;
 
         if (elevation < 1.0) {
             return WATER;
         }
         var b = elevation * moisture;
-        if (b > 8) {
+        if (b > 10) {
             return MT_SNOW;
-        } else if (b > 2) {
+        } else if (b > 3) {
             return STONE;
+        } else if (b > 1.8) {
+            return DRY_GRASS;
         } else if (b > 1.1) {
             return GRASS;
         } else {
@@ -729,7 +760,7 @@
         var b = 1;
         var c = 2;
         var d;
-        var redistrib = 8;
+        var redistrib = 10;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
                 elev = perlin(2 * i / w, 2 * j / h, p, 20);
@@ -757,7 +788,7 @@
         var redistrib2 = 2;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
-                moist = perlin(4 * i / w, 4 * j / h, p2, 5);
+                moist = perlin(10 * i / w, 10 * j / h, p2, 10);
 				moistureData.push(Math.pow(moist, redistrib2));
 			}
 		}
@@ -800,8 +831,55 @@
             }
         }
 
-        cameraPos = [ndiv/2, ndiv/2, 0];
+        cameraPos = [ndiv/6, ndiv/6, 0];
         return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
+    }
+
+    function generateFogDensity(gl, ndiv) {
+        var w = ndiv;
+        var h = ndiv;
+        var p = genP();
+        var densityData = [];
+
+        var dens;
+        var redistrib = .2;
+		for (var j = 0; j < h; j++) {
+			for (var i = 0; i < w; i++) {
+                dens = perlin(5 * i / w, 5 * j / h, p, 10);
+                dens = Math.pow(dens, redistrib);
+                densityData.push(dens);
+			}
+		}
+
+		var minVal = Math.min.apply(null, densityData);
+        var maxVal = Math.max.apply(null, densityData);
+
+        var density = [];
+
+		for (var i = 0; i < densityData.length; i++) {
+            var val = (densityData[i] - minVal) / (maxVal - minVal) * 255;
+			density.push(val);
+			density.push(val);
+			density.push(val);
+			density.push(255);
+		}
+
+        var densityPixels = new Uint8Array(density);
+
+        var densityTex = gl.createTexture();
+
+        gl.bindTexture(gl.TEXTURE_2D, densityTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, densityPixels);
+
+        // gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE );
+        // gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE );
+        gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST );
+        gl.texParameteri( gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        densityTex.generateMipmaps = false;
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        return densityTex;
     }
 
     function getViewMatrix() {
@@ -880,6 +958,12 @@
                 id: "grassNormals",
                 src: "data/grass_norm.jpg"
             }, {
+                id: "dryGrass",
+                src: "data/grass2.jpg"
+            }, {
+                id: "dryGrassNormals",
+                src: "data/grass2_norm.jpg"
+            }, {
                 id: "sand",
                 src: "data/sand.png"
             }, {
@@ -930,11 +1014,14 @@
     programTRN["texture1"] = gl.getUniformLocation(programTRN, "stone");
     programTRN["texture2"] = gl.getUniformLocation(programTRN, "sand");
     programTRN["texture3"] = gl.getUniformLocation(programTRN, "mtSnow");
+    programTRN["texture4"] = gl.getUniformLocation(programTRN, "dryGrass");
 
     reflectProgram["texture0"] = gl.getUniformLocation(reflectProgram, "grass");
     reflectProgram["texture1"] = gl.getUniformLocation(reflectProgram, "stone");
     reflectProgram["texture2"] = gl.getUniformLocation(reflectProgram, "sand");
     reflectProgram["texture3"] = gl.getUniformLocation(reflectProgram, "mtSnow");
+    reflectProgram["texture4"] = gl.getUniformLocation(reflectProgram, "dryGrass");
+    reflectProgram["texture5"] = gl.getUniformLocation(reflectProgram, "density");
 
     waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
@@ -946,14 +1033,18 @@
     var sandTexture = createTexture(gl, queue.getResult("sand", false));
     var stoneTexture = createTexture(gl, queue.getResult("stone", false));
     var mtSnowTexture = createTexture(gl, queue.getResult("mtSnow", false));
+    var dryGrassTexture = createTexture(gl, queue.getResult("dryGrass", false));
 
     var grassNormals = createTexture(gl, queue.getResult("grassNormals", false));
     var sandNormals = createTexture(gl, queue.getResult("sandNormals", false));
     var stoneNormals = createTexture(gl, queue.getResult("stoneNormals", false));
     var stoneNormals = createTexture(gl, queue.getResult("mtSnowNormals", false));
+    var dryGrassNormals = createTexture(gl, queue.getResult("dryGrassNormals", false));
 
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
+
+    var fogDensity = generateFogDensity(gl, 225);
 
     //var start=new Date().getSeconds();//new Date().getTime() / 1000;
     //var frames = 0;
@@ -973,6 +1064,7 @@
             setMat4Uniform(gl, program, "mProj", projMat);
             setMat4Uniform(gl, program, "mCam", mCam);
             setFloatUniform(gl, program, "time", 200 / 10);
+            setVec3Uniform(gl, program, "cameraPos", cameraPos);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
@@ -993,6 +1085,16 @@
                 gl.activeTexture(gl.TEXTURE3);
                 gl.bindTexture(gl.TEXTURE_2D, mtSnowTexture);
                 gl.uniform1i(program.texture3, 3);
+            }
+            if (program.texture4 != null) {
+                gl.activeTexture(gl.TEXTURE4);
+                gl.bindTexture(gl.TEXTURE_2D, dryGrassTexture);
+                gl.uniform1i(program.texture4, 4);
+            }
+            if (program.texture5 != null) {
+                gl.activeTexture(gl.TEXTURE5);
+                gl.bindTexture(gl.TEXTURE_2D, fogDensity);
+                gl.uniform1i(program.texture5, 5);
             }
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
