@@ -110,17 +110,19 @@
 <script id="fragmentTRN" type="x-shader/x-fragment">
     precision highp float;
 
-    #define GRASS 2.0
-    #define DRY_GRASS 3.0
-    #define STONE 4.0
+    #define GRASS 3.0
+    #define DRY_GRASS 4.0
+    #define STONE 5.0
     #define SAND 1.0
-    #define MT_SNOW 5.0
+    #define MT_SNOW 6.0
+    #define SAND_AND_GRASS 2.0
 
     uniform sampler2D grass;
     uniform sampler2D dryGrass;
     uniform sampler2D stone;
     uniform sampler2D sand;
     uniform sampler2D mtSnow;
+    uniform sampler2D sandAndGrass;
     varying vec2 tcoords;
     varying float biome;
 
@@ -137,10 +139,12 @@
             gl_FragColor = (1.0 - (biome-DRY_GRASS)) * texture2D(dryGrass, tcoords) + (biome-DRY_GRASS) * texture2D(stone, tcoords);
         } else if (biome >= GRASS) {
             gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dryGrass, tcoords);
+        } else if (biome >= SAND_AND_GRASS) {
+            gl_FragColor = (1.0 - (biome-SAND_AND_GRASS)) * texture2D(sandAndGrass, tcoords) + (biome-SAND_AND_GRASS) * texture2D(grass, tcoords);
         } else if (biome >= SAND) {
-            gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
+            gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(sandAndGrass, tcoords);
         } else {
-            gl_FragColor = (1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords);
+            gl_FragColor = texture2D(sand, tcoords);
         }
     }
 
@@ -149,17 +153,19 @@
 <script id="fragmentReflect" type="x-shader/x-fragment">
     precision highp float;
 
-    #define GRASS 2.0
-    #define DRY_GRASS 3.0
-    #define STONE 4.0
+    #define GRASS 3.0
+    #define DRY_GRASS 4.0
+    #define STONE 5.0
     #define SAND 1.0
-    #define MT_SNOW 5.0
+    #define MT_SNOW 6.0
+    #define SAND_AND_GRASS 2.0
 
     uniform sampler2D grass;
     uniform sampler2D dryGrass;
     uniform sampler2D stone;
     uniform sampler2D sand;
     uniform sampler2D mtSnow;
+    uniform sampler2D sandAndGrass;
     varying vec2 tcoords;
     varying float biome;
 
@@ -179,8 +185,10 @@
             sceneColor = (1.0 - (biome-DRY_GRASS)) * texture2D(dryGrass, tcoords) + (biome-DRY_GRASS) * texture2D(stone, tcoords);
         } else if (biome >= GRASS) {
             sceneColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dryGrass, tcoords);
+        } else if (biome >= SAND_AND_GRASS) {
+            sceneColor = (1.0 - (biome-SAND_AND_GRASS)) * texture2D(sandAndGrass, tcoords) + (biome-SAND_AND_GRASS) * texture2D(grass, tcoords);
         } else if (biome >= SAND) {
-            sceneColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
+            sceneColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(sandAndGrass, tcoords);
         } else {
             discard;
             //gl_FragColor = vec4(0.1,0.2,0.2,1.0);
@@ -190,12 +198,12 @@
         float distance = length(dir);
         float b1 = 0.02;
         float b2 = 0.03;
-        float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y);
-        float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y);
+        float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, tcoords).a;
+        float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.7,0.7,0.7);
         gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
-        // gl_FragColor = texture2D(density, tcoords);
         gl_FragColor.a = sceneColor.a;
+        // gl_FragColor = texture2D(density, tcoords);
     }
 </script>
 
@@ -616,11 +624,12 @@
     var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
 
     function getBiome(elevation, moisture) {
-        var GRASS = 2.0;
-        var DRY_GRASS = 3.0;
-        var STONE = 4.0;
+        var GRASS = 3.0;
+        var DRY_GRASS = 4.0;
+        var STONE = 5.0;
+        var SAND_AND_GRASS = 2.0;
         var SAND = 1.0;
-        var MT_SNOW = 5.0;
+        var MT_SNOW = 6.0;
         var WATER = 0.0;
 
         if (elevation < 1.0) {
@@ -633,8 +642,10 @@
             return STONE;
         } else if (b > 1.8) {
             return DRY_GRASS;
-        } else if (b > 1.1) {
+        } else if (b > 1.6) {
             return GRASS;
+        } else if (b > 1.05) {
+            return SAND_AND_GRASS;
         } else {
             return SAND;
         }
@@ -643,7 +654,7 @@
     function generateTerrain(ndiv, ntex) {
         var w = ndiv;
         var h = ndiv;
-        var tstep = ntex/(ndiv/10.0);
+        var tstep = ntex/(ndiv/15.0);
         var p = genP();
         var elevData = [];
 
@@ -652,7 +663,7 @@
         var b = 1;
         var c = 2;
         var d;
-        var redistrib = 10;
+        var redistrib = 8;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
                 elev = perlin(2 * i / w, 2 * j / h, p, 20);
@@ -856,6 +867,12 @@
                 id: "dryGrassNormals",
                 src: "data/grass2_norm.jpg"
             }, {
+                id: "sandAndGrass",
+                src: "data/sandAndGrass.jpg"
+            }, {
+                id: "sandAndGrassNormals",
+                src: "data/sandAndGrass_norm.jpg"
+            }, {
                 id: "sand",
                 src: "data/sand.png"
             }, {
@@ -863,10 +880,10 @@
                 src: "data/sand_norm.png"
             }, {
                 id: "stone",
-                src: "data/stone.jpg"
+                src: "data/stone.png"
             }, {
                 id: "stoneNormals",
-                src: "data/stone_norm.jpg"
+                src: "data/stone_norm.png"
             }, {
                 id: "mtSnow",
                 src: "data/mtSnow.jpg"
@@ -879,6 +896,66 @@
             }, {
             	id: "snow",
             	src: "data/snow.png"
+            }, {
+                id: "fog",
+                src: "data/fog0.png"
+            // }, {
+            //     id: "fog1",
+            //     src: "data/fog1.png"
+            // }, {
+            //     id: "fog2",
+            //     src: "data/fog2.png"
+            // }, {
+            //     id: "fog3",
+            //     src: "data/fog3.png"
+            // }, {
+            //     id: "fog4",
+            //     src: "data/fog4.png"
+            // }, {
+            //     id: "fog5",
+            //     src: "data/fog5.png"
+            // }, {
+            //     id: "fog6",
+            //     src: "data/fog6.png"
+            // }, {
+            //     id: "fog7",
+            //     src: "data/fog7.png"
+            // }, {
+            //     id: "fog8",
+            //     src: "data/fog8.png"
+            // }, {
+            //     id: "fog9",
+            //     src: "data/fog9.png"
+            // }, {
+            //     id: "fog10",
+            //     src: "data/fog10.png"
+            // }, {
+            //     id: "fog11",
+            //     src: "data/fog11.png"
+            // }, {
+            //     id: "fog12",
+            //     src: "data/fog12.png"
+            // }, {
+            //     id: "fog13",
+            //     src: "data/fog13.png"
+            // }, {
+            //     id: "fog14",
+            //     src: "data/fog14.png"
+            // }, {
+            //     id: "fog15",
+            //     src: "data/fog15.png"
+            // }, {
+            //     id: "fog16",
+            //     src: "data/fog16.png"
+            // }, {
+            //     id: "fog17",
+            //     src: "data/fog17.png"
+            // }, {
+            //     id: "fog18",
+            //     src: "data/fog18.png"
+            // }, {
+            //     id: "fog19",
+            //     src: "data/fog19.png"
             }
         ]);
     }
@@ -907,13 +984,15 @@
     programTRN["texture2"] = gl.getUniformLocation(programTRN, "sand");
     programTRN["texture3"] = gl.getUniformLocation(programTRN, "mtSnow");
     programTRN["texture4"] = gl.getUniformLocation(programTRN, "dryGrass");
+    programTRN["texture5"] = gl.getUniformLocation(programTRN, "sandAndGrass");
 
     reflectProgram["texture0"] = gl.getUniformLocation(reflectProgram, "grass");
     reflectProgram["texture1"] = gl.getUniformLocation(reflectProgram, "stone");
     reflectProgram["texture2"] = gl.getUniformLocation(reflectProgram, "sand");
     reflectProgram["texture3"] = gl.getUniformLocation(reflectProgram, "mtSnow");
     reflectProgram["texture4"] = gl.getUniformLocation(reflectProgram, "dryGrass");
-    reflectProgram["texture5"] = gl.getUniformLocation(reflectProgram, "density");
+    reflectProgram["texture5"] = gl.getUniformLocation(reflectProgram, "sandAndGrass");
+    reflectProgram["texture6"] = gl.getUniformLocation(reflectProgram, "density");
 
     waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
@@ -926,17 +1005,27 @@
     var stoneTexture = createTexture(gl, queue.getResult("stone", false));
     var mtSnowTexture = createTexture(gl, queue.getResult("mtSnow", false));
     var dryGrassTexture = createTexture(gl, queue.getResult("dryGrass", false));
+    var sandAndGrassTexture = createTexture(gl, queue.getResult("sandAndGrass", false));
 
     var grassNormals = createTexture(gl, queue.getResult("grassNormals", false));
     var sandNormals = createTexture(gl, queue.getResult("sandNormals", false));
     var stoneNormals = createTexture(gl, queue.getResult("stoneNormals", false));
     var stoneNormals = createTexture(gl, queue.getResult("mtSnowNormals", false));
     var dryGrassNormals = createTexture(gl, queue.getResult("dryGrassNormals", false));
+    var sandAndGrassNormals = createTexture(gl, queue.getResult("sandAndGrassNormals", false));
 
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
 
-    var fogDensity = generateFogDensity(gl, 225);
+    // var fogDensity = generateFogDensity(gl, 225);
+    var fogDensity = createTexture(gl, queue.getResult("fog", false));
+    // var fogDensities = [];
+    // for (i=0;i<20;i++) {
+    //     fogDensities.push(createTexture(gl, queue.getResult("fog"+i, false)));
+    // }
+    // var FOG_DELAY = 50;
+    // var delay = FOG_DELAY;
+    // var densityIdx = 0;
 
     //var start=new Date().getSeconds();//new Date().getTime() / 1000;
     //var frames = 0;
@@ -985,8 +1074,19 @@
             }
             if (program.texture5 != null) {
                 gl.activeTexture(gl.TEXTURE5);
-                gl.bindTexture(gl.TEXTURE_2D, fogDensity);
+                gl.bindTexture(gl.TEXTURE_2D, sandAndGrassTexture);
                 gl.uniform1i(program.texture5, 5);
+            }
+            if (program.texture6 != null) {
+                // if (delay == 0) {
+                //     densityIdx = (densityIdx+1) % 20;
+                //     delay = FOG_DELAY;
+                // } else {
+                //     delay--;
+                // }
+                gl.activeTexture(gl.TEXTURE6);
+                gl.bindTexture(gl.TEXTURE_2D, fogDensity);
+                gl.uniform1i(program.texture6, 6);
             }
 
             gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
