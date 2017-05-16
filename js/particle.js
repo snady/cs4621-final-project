@@ -1,11 +1,13 @@
 function Particle(x, y, z){
+	this.startPos = {"x": x, "y": y, "z": z};
 	this.position = {"x": x, "y": y, "z": z};
 
-	this.velocity = (Math.random()*0.5)+0.1;
+	this.velocity = {"x": (Math.random()*0.1)-0.1, "y": (Math.random()*0.4)+0.1, "z": (Math.random()*0.1)-0.1};
 
 	this.update = function(dt, endHeight) {
-		this.position.y -= this.velocity * dt;
-
+		this.position.x += this.velocity.x * dt;
+		this.position.y -= this.velocity.y * dt;
+		this.position.z += this.velocity.z * dt;
 	}
 
 }
@@ -32,17 +34,49 @@ function Emitter(x, y, z, width, height){
 
 	this.update = function(dt) {
 
+		var offset = 0;
+		var dp = this.particleSize/2;
 		for( var ii = 0; ii < this.totalParticles; ii++ ){
 			var particle = this.particlePool[ii];
 			if( particle.position.y <= this.endHeight ){
+				particle.position.x = particle.startPos.x;
 				particle.position.y = this.startHeight;
+				particle.position.z = particle.startPos.z;
 			}
+			offset = 12*ii;
 			particle.update(dt);
 
-			this.vertices[(12*ii)+1] = particle.position.y;
-			this.vertices[(12*ii)+4] = particle.position.y;
-			this.vertices[(12*ii)+7] = particle.position.y+this.particleSize;
-			this.vertices[(12*ii)+10] = particle.position.y+this.particleSize;
+			this.vertices[offset+0] = particle.position.x;
+			this.vertices[offset+3] = particle.position.x+this.particleSize;
+			this.vertices[offset+6] = particle.position.x+this.particleSize;
+			this.vertices[offset+9] = particle.position.x;
+
+			this.vertices[offset+1] = particle.position.y;
+			this.vertices[offset+4] = particle.position.y;
+			this.vertices[offset+7] = particle.position.y+this.particleSize;
+			this.vertices[offset+10] = particle.position.y+this.particleSize;
+
+			this.vertices[offset+2] = particle.position.z;
+			this.vertices[offset+5] = particle.position.z;
+			this.vertices[offset+8] = particle.position.z;
+			this.vertices[offset+11] = particle.position.z;
+
+			//updating centers
+			this.center_coords[offset+0] = particle.position.x+dp;
+			this.center_coords[offset+3] = particle.position.x+dp;
+			this.center_coords[offset+6] = particle.position.x+dp;
+			this.center_coords[offset+9] = particle.position.x+dp;
+
+			this.center_coords[offset+1] = particle.position.y+dp;
+			this.center_coords[offset+4] = particle.position.y+dp;
+			this.center_coords[offset+7] = particle.position.y+dp;
+			this.center_coords[offset+10] = particle.position.y+dp;
+
+			this.center_coords[offset+2] = particle.position.z;
+			this.center_coords[offset+5] = particle.position.z;
+			this.center_coords[offset+8] = particle.position.z;
+			this.center_coords[offset+11] = particle.position.z;
+
 		}
 	}
 }

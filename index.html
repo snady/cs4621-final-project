@@ -298,24 +298,30 @@
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0);
 
+        mat4 rot2 = mat4(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0);
+
 	  	//cylindrical true billboarding (following lighthouse3d's tutorial)
 	  	//http://www.lighthouse3d.com/opengl/billboarding/billboardingtut.pdf
 	  	
 	  	vec3 objToCamProj = normalize(vec3(e.x-position.x, 0, e.z-position.z));
 	  	vec3 lookAt = vec3(0,0,1); //view dir of quad
 	  	vec3 upAux = cross(lookAt, objToCamProj);
-	  	float costheta = dot(lookAt, objToCamProj);
-	  	float theta = acos(costheta);
+	  	float costhetac = dot(lookAt, objToCamProj);
+	  	float thetac = acos(costhetac);
 
 	  	if( upAux.y < 0.0 ){
-	  		theta = -theta;
+	  		thetac = -thetac;
 	  	}
 
-	  	if ((costheta < 0.99990) && (costheta > -0.9999)){
+	  	if ((costhetac < 0.99990) && (costhetac > -0.9999)){
 		  	rot = mat4(
-		  		cos(theta), 0.0,-sin(theta), 0.0,
+		  		cos(thetac), 0.0,-sin(thetac), 0.0,
 	            0.0, 		1.0, 0.0, 		 0.0,
-	            sin(theta), 0.0, cos(theta), 0.0,
+	            sin(thetac), 0.0, cos(thetac), 0.0,
 	            0.0, 		0.0, 0.0,		 1.0);
 	  	}
 
@@ -504,7 +510,11 @@
     var mouseDown = false;
     var mouseDownX = 0.0;
     var mouseDownY = 0.0;
-    //var w;
+
+    //global weather mode constants
+    var WEATHER_NONE = 0;
+    var WEATHER_SNOW = 1;
+    var WEATHER_RAIN = 2;
 
     function updateCam(){
         var w = vec3.create();
