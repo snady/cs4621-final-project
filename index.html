@@ -505,6 +505,34 @@
 <script id="fragmentFog" type="x-shader/x-fragment">
 </script>
 
+<script id="vertexSkybox" type="x-shader/x-vertex">
+    attribute vec3 position;
+
+    uniform mat4 mProj;
+    uniform mat4 mCam;
+    uniform vec3 cameraPos;
+
+    varying vec3 vCoords;
+
+    void main() {
+        gl_Position = mProj*mCam*vec4(position+cameraPos, 1.0);
+        vCoords = position;
+    }
+</script>
+
+<script id="fragmentSkybox" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec3 vCoords;
+    uniform samplerCube texture0;
+
+    void main() {
+        vec3 coords = vec3(vCoords[0], -1.0*vCoords[1], vCoords[2]);
+        gl_FragColor = textureCube(texture0, coords);
+        //gl_FragColor = vec4(vCoords/50.0,1.0);
+    }
+</script>
+
 <script>
     $("#webglCanvas").click(function (event) {
         //console.log("clicked");
@@ -815,7 +843,7 @@
     var mouseDownX = 0.0;
     var mouseDownY = 0.0;
 
-    var lightDir = [0.5,-0.866,0.0];
+    var lightDir = [0.0,-0.866,-0.5];
 
     //global weather mode constants
     var WEATHER_NONE = 0;
@@ -922,6 +950,35 @@
         terrain.offsetZ = offsetZ;
         return terrain
     }
+
+    var boxRad = 2500.0;
+    var vertexDataSkybox = [
+    -boxRad,-boxRad,boxRad,
+    boxRad,-boxRad,boxRad,
+    boxRad,-boxRad,-boxRad,
+    -boxRad,-boxRad,-boxRad,
+
+    -boxRad,boxRad,boxRad,
+    boxRad,boxRad,boxRad,
+    boxRad,boxRad,-boxRad,
+    -boxRad,boxRad,-boxRad
+    ];
+    var indexDataSkybox = [
+    2,1,5,
+    2,5,6,
+    0,3,7,
+    0,7,4,
+    7,6,5,
+    7,5,4,
+    0,1,2,
+    0,2,3,
+    1,0,4,
+    1,4,5,
+    3,2,6,
+    3,6,7
+    ];
+    var vertexBufferSkybox = setFloat32Buffer(gl, vertexDataSkybox);
+    var indexBufferSkybox = setUInt16Buffer(gl, indexDataSkybox);
 
     function getBiome(elevation, moisture) {
         var GRASS = 3.0;
@@ -1243,6 +1300,25 @@
         return densityTex;
     }
 
+    function initCubeMap(gl,queue){
+        var CubeMap = gl.createTexture();
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, CubeMap);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("posx", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("negx", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("negy", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("posy", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("posz", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("negz", false));
+
+        gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+        gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+        return CubeMap;
+    }
+
     function getViewMatrix() {
         var e = cameraPos;
         var w = vec3.fromValues(-1*Math.cos(heading), -1*Math.cos(phi), Math.sin(heading))
@@ -1415,6 +1491,24 @@
             // }, {
             //     id: "fog19",
             //     src: "data/fog19.png"
+            }, {
+                id: "posx",
+                src: "data/cloudtop_posx.png"
+            }, {
+                id: "negx",
+                src: "data/cloudtop_negx.png"
+            }, {
+                id: "posy",
+                src: "data/cloudtop_posy.png"
+            }, {
+                id: "negy",
+                src: "data/cloudtop_negy.png"
+            }, {
+                id: "posz",
+                src: "data/cloudtop_posz.png"
+            }, {
+                id: "negz",
+                src: "data/cloudtop_negz.png"
             }
         ]);
     }
@@ -1439,6 +1533,7 @@
     var waterProgram = glslProgram("waterVertex", "waterFragment");
     var programSNOW = glslProgram("vertexSNOW", "fragmentSNOW");
     var reflectProgram = glslProgram("vertexShaderTRN", "fragmentReflect");
+    var skyboxProgram = glslProgram("vertexSkybox", "fragmentSkybox");
 
     programTRN["texture0"] = gl.getUniformLocation(programTRN, "grass");
     programTRN["texture1"] = gl.getUniformLocation(programTRN, "stone");
@@ -1478,6 +1573,8 @@
     programSNOW["texture0"] = gl.getUniformLocation(programSNOW, "snow");
     programSNOW["texture1"] = gl.getUniformLocation(programSNOW, "rain");
 
+    skyboxProgram["texture0"] = gl.getUniformLocation(skyboxProgram, "texture0");
+
     var grassTexture = createTexture(gl, queue.getResult("grass", false));
     var sandTexture = createTexture(gl, queue.getResult("sand", false));
     var stoneTexture = createTexture(gl, queue.getResult("stone", false));
@@ -1495,6 +1592,8 @@
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
     var rainTexture = createTexture(gl, queue.getResult("rain", false));
+
+    var skybox = initCubeMap(gl,queue);
 
     // var fogDensity = generateFogDensity(gl, 225);
     var fogDensity = createTexture(gl, queue.getResult("fog", false));
@@ -1762,6 +1861,7 @@
                 terrainBuffers.forEach(function (tb) {
                     drawTerrain(mCam, projMat, reflectProgram, tb);
                 })
+                drawSkybox(mCam, projMat);
                 gl.flush();
             }
 
@@ -1831,11 +1931,38 @@
             //gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         }
 
+        function drawSkybox(mCam, projMat) {
+            gl.useProgram(skyboxProgram);
+
+            setMat4Uniform(gl, skyboxProgram, "mProj", projMat);
+            setMat4Uniform(gl, skyboxProgram, "mCam", mCam);
+            setVec3Uniform(gl, skyboxProgram, "cameraPos", cameraPos);
+
+            if (skyboxProgram.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, skybox);
+                gl.uniform1i(skyboxProgram.texture0, 0);
+            }
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBufferSkybox);
+            var vPL = gl.getAttribLocation(skyboxProgram, "position")
+            gl.enableVertexAttribArray(vPL);
+            gl.vertexAttribPointer(vPL, 3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBufferSkybox);
+            gl.enable(gl.DEPTH_TEST);
+            gl.drawElements(gl.TRIANGLES, indexDataSkybox.length, gl.UNSIGNED_SHORT, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+            gl.useProgram(null);
+        }
+
         function updateWebGL() {
             resize(gl.canvas);
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             var projMat = mat4.create();
-            mat4.perspective(projMat, fov, gl.canvas.width/gl.canvas.height, 0.1, 2000.0);
+            mat4.perspective(projMat, fov, gl.canvas.width/gl.canvas.height, 0.1, 6000.0);
 
         	gl.clearColor(0.7, 0.7, 0.7, 1.0);
         	gl.clear(gl.COLOR_BUFFER_BIT);
@@ -1844,7 +1971,7 @@
             updateCam();
             var mCam = getViewMatrix();
 
-            updateParticles(emitter, );
+            updateParticles(emitter);
 
             drawReflectionTexture(projMat);
            // drawRefractionTexture(mCam, projMat);
@@ -1862,6 +1989,8 @@
             terrainBuffers.forEach(function (tb) {
                 drawWater(mCam, projMat, tb, moveFactor);
             });
+
+            drawSkybox(mCam, projMat);
 
             //DRAWING SNOW, TESTING
             gl.useProgram(programSNOW);
