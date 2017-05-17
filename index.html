@@ -52,6 +52,7 @@
     attribute vec3 position;
     attribute vec2 texture_coords;
     attribute float a_biome;
+    attribute vec3 normal;
 
     /*uniform vec3 cameraPos;
     uniform float heading;
@@ -63,6 +64,7 @@
 
     varying vec2 tcoords;
     varying float biome;
+    varying vec3 norm;
 
     varying vec3 worldCoords;
 
@@ -101,7 +103,7 @@
 
        tcoords = texture_coords;
        gl_Position = mProj*mCam*vec4(position, 1.0);
-
+       norm = normalize(normal);
        worldCoords = position;
     }
 
@@ -125,10 +127,12 @@
     uniform sampler2D sandAndGrass;
     varying vec2 tcoords;
     varying float biome;
+    varying vec3 norm;
 
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
     uniform sampler2D density;
+    uniform vec3 lightDirection;
 
     // Main
     void main() {
@@ -156,9 +160,12 @@
         float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, tcoords).a;
         float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.7,0.7,0.7);
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
+        vec3 l = lightDirection*-1.0;
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
         gl_FragColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
+        //gl_FragColor = vec4((norm+ vec3(1,1,1))*0.5,1.0);
     }
 
 </script>
@@ -389,11 +396,25 @@
 <script id="fragmentSNOW" type="x-shader/x-fragment">
     precision highp float;
 
+    uniform int mode;
     uniform sampler2D snow;
+    uniform sampler2D rain;
+
     varying vec2 tcoords;
 
+    vec4 color;
     void main(){
-    	gl_FragColor = texture2D(snow, tcoords);
+    	if( mode == 1 ){
+    		gl_FragColor = texture2D(snow, tcoords);
+    	}
+    	if( mode == 2 ){
+    		color = texture2D(rain, tcoords);
+    		color.x = color.x*0.7;
+    		color.y = color.y*0.7;
+    		color.z = color.z*0.8;
+    		color.a = color.a*0.5;
+    		gl_FragColor = color;
+    	}
     }
 
 </script>
@@ -405,7 +426,6 @@
 </script>
 
 <script>
-
     $("#webglCanvas").click(function (event) {
         //console.log("clicked");
     });
@@ -715,10 +735,14 @@
     var mouseDownX = 0.0;
     var mouseDownY = 0.0;
 
+    var lightDir = [0.5,-0.866,0.0];
+
     //global weather mode constants
     var WEATHER_NONE = 0;
     var WEATHER_SNOW = 1;
     var WEATHER_RAIN = 2;
+
+    var WEATHER_MODE = WEATHER_RAIN;
 
     function updateCam(){
         var w = vec3.create();
@@ -793,6 +817,7 @@
     var indexBuffer = setUInt16Buffer(gl, terrain.indices);
     var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
     var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
+    var normalBuffer = setFloat32Buffer(gl, terrain.normals);
 
     function getBiome(elevation, moisture) {
         var GRASS = 3.0;
@@ -879,6 +904,7 @@
         var verts = [];
         var indices = [];
         var tcoords = [];
+        var norms = [] 
         var biomes = [];
         var idx = 0;
 
@@ -901,11 +927,63 @@
                     bLeft, bRight, tLeft,
                     tLeft, bRight, tRight
                 );
+
+                var v1 = vec3.fromValues(verts[bRight*3]-verts[bLeft*3], verts[bRight*3+1]-verts[bLeft*3+1], verts[bRight*3+2]-verts[bLeft*3+2]);
+                var v2 = vec3.fromValues(verts[tLeft*3]-verts[bLeft*3], verts[tLeft*3+1]-verts[bLeft*3+1], verts[tLeft*3+2]-verts[bLeft*3+2]);
+                var norm1 = vec3.create();
+                vec3.cross(norm1, v1, v2);
+                vec3.normalize(norm1, norm1);
+
+                var v3 = vec3.fromValues(verts[tRight*3]-verts[bRight*3], verts[tRight*3+1]-verts[bRight*3+1], verts[tRight*3+2]-verts[bRight*3+2]);
+                var v4 = vec3.fromValues(verts[tLeft*3]-verts[bRight*3], verts[tLeft*3+1]-verts[bRight*3+1], verts[tLeft*3+2]-verts[bRight*3+2]);
+                var norm2 = vec3.create();
+                vec3.cross(norm2, v3, v4);
+                vec3.normalize(norm2, norm2);
+
+                if(norms[bLeft*3]==undefined){
+                    norms[bLeft*3] = norm1[0];
+                    norms[bLeft*3+1] = norm1[1];
+                    norms[bLeft*3+2] = norm1[2];
+                }else{
+                    norms[bLeft*3] += norm1[0];
+                    norms[bLeft*3+1] += norm1[1];
+                    norms[bLeft*3+2] += norm1[2];
+                }
+
+                if(norms[bRight*3]==undefined){
+                    norms[bRight*3] = norm1[0] + norm2[0];
+                    norms[bRight*3+1] = norm1[1] + norm2[1];
+                    norms[bRight*3+2] = norm1[2] + norm2[2];
+                }else{
+                    norms[bRight*3] += norm1[0] + norm2[0];
+                    norms[bRight*3+1] += norm1[1] + norm2[1];
+                    norms[bRight*3+2] += norm1[2] + norm2[2];
+                }
+
+                if(norms[tLeft*3]==undefined){
+                    norms[tLeft*3] = norm1[0] + norm2[0];
+                    norms[tLeft*3+1] = norm1[1] + norm2[1];
+                    norms[tLeft*3+2] = norm1[2] + norm2[2];
+                }else{
+                    norms[tLeft*3] += norm1[0] + norm2[0];
+                    norms[tLeft*3+1] += norm1[1] + norm2[1];
+                    norms[tLeft*3+2] += norm1[2] + norm2[2];
+                }
+
+                if(norms[tRight*3]==undefined){
+                    norms[tRight*3] = norm2[0];
+                    norms[tRight*3+1] = norm2[1];
+                    norms[tRight*3+2] = norm2[2];
+                }else{
+                    norms[tRight*3] += norm2[0];
+                    norms[tRight*3+1] += norm2[1];
+                    norms[tRight*3+2] += norm2[2];
+                }
             }
         }
 
         cameraPos = [ndiv/6, ndiv/6, 0];
-        return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
+        return {vertices: verts, indices: indices, normals: norms, texture_coords: tcoords, biomes: biomes};
     }
 
     function generateFogDensity(gl, ndiv) {
@@ -995,30 +1073,19 @@
         return mIT;
     }
 
-    //for testing purposes
-    // var snowVert = [];
-    // var snowIndex = [];
-    // var snowTex = [];
+    var emitter = new Emitter(50,50,-50, 75, 75, WEATHER_MODE);
 
-    // addSquare(0,0,0,5, snowVert, snowIndex, snowTex);
-    // addSquare(20,20,-20,5, snowVert, snowIndex, snowTex);
-    // addSquare(50,15,-50,5, snowVert, snowIndex, snowTex);
-    // addSquare(100, 15, -60, 5, snowVert, snowIndex, snowTex);
-    // addSquare(80, 10, -70, 5, snowVert, snowIndex, snowTex);
-
-    var emitter = new Emitter(50,50,-50, 75, 75);
-
-    var snowVertBuffer;
-    var snowTexBuffer;
-    var snowIndexBuffer;
-    var snowCenterBuffer;
+    var weatherVertBuffer;
+    var weatherTexBuffer;
+    var weatherIndexBuffer;
+    var weatherCenterBuffer;
 
     function updateParticles(emitter){
     	emitter.update(1);
-    	snowVertBuffer = setFloat32BufferD(gl, emitter.vertices);
-    	snowTexBuffer = setFloat32Buffer(gl, emitter.texture_coords);
-    	snowIndexBuffer = setUInt16Buffer(gl, emitter.indices);
-    	snowCenterBuffer = setFloat32BufferD(gl, emitter.center_coords);
+    	weatherVertBuffer = setFloat32BufferD(gl, emitter.vertices);
+    	weatherTexBuffer = setFloat32Buffer(gl, emitter.texture_coords);
+    	weatherIndexBuffer = setUInt16Buffer(gl, emitter.indices);
+    	weatherCenterBuffer = setFloat32BufferD(gl, emitter.center_coords);
     }
 
     function startWebGL() {
@@ -1073,6 +1140,9 @@
             }, {
                 id: "fog",
                 src: "data/fog0.png"
+            }, {
+            	id: "rain",
+            	src: "data/rain.png"
             // }, {
             //     id: "fog1",
             //     src: "data/fog1.png"
@@ -1175,7 +1245,8 @@
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
     waterProgram["texture2"] = gl.getUniformLocation(waterProgram, "dudvMap");
 
-    programSNOW["texture5"] = gl.getUniformLocation(programSNOW, "snow");
+    programSNOW["texture0"] = gl.getUniformLocation(programSNOW, "snow");
+    programSNOW["texture1"] = gl.getUniformLocation(programSNOW, "rain");
 
     var grassTexture = createTexture(gl, queue.getResult("grass", false));
     var sandTexture = createTexture(gl, queue.getResult("sand", false));
@@ -1193,6 +1264,7 @@
 
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
+    var rainTexture = createTexture(gl, queue.getResult("rain", false));
 
     // var fogDensity = generateFogDensity(gl, 225);
     var fogDensity = createTexture(gl, queue.getResult("fog", false));
@@ -1213,8 +1285,8 @@
     var moveFactor = 0;
 
     gl.enable(gl.DEPTH_TEST);
-    /*gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.BLEND);*/
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.BLEND);
 
         function drawTerrain(mCam, projMat, program) {
             gl.useProgram(program);
@@ -1223,6 +1295,7 @@
             setMat4Uniform(gl, program, "mCam", mCam);
             setFloatUniform(gl, program, "time", 200 / 10);
             setVec3Uniform(gl, program, "cameraPos", cameraPos);
+            setVec3Uniform(gl, program, "lightDirection", lightDir);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
@@ -1270,6 +1343,12 @@
             var positionLocation = gl.getAttribLocation(program, "position")
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+            var normalLocation = gl.getAttribLocation(program, "normal")
+            gl.enableVertexAttribArray(normalLocation);
+            gl.vertexAttribPointer(normalLocation,3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
@@ -1457,7 +1536,7 @@
             updateCam();
             var mCam = getViewMatrix();
 
-            updateParticles(emitter);
+            updateParticles(emitter, );
 
             drawReflectionTexture(projMat);
            // drawRefractionTexture(mCam, projMat);
@@ -1467,44 +1546,50 @@
             drawWater(mCam, projMat);
 
             //DRAWING SNOW, TESTING
-           /* gl.useProgram(programSNOW);
+            gl.useProgram(programSNOW);
 
-            if (programSNOW.texture5 != null) {
-                gl.activeTexture(gl.TEXTURE5);
+            if (programSNOW.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, snowTexture);
-                gl.uniform1i(programSNOW.texture5, 5);
+                gl.uniform1i(programSNOW.texture0, 0);
+            }
+            if (programSNOW.texture1 != null) {
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, rainTexture);
+                gl.uniform1i(programSNOW.texture1, 1);
             }
 
             //SETTING UNIFORMS
+            setIntUniform(gl, programSNOW, "mode", WEATHER_MODE);
             setVec3Uniform(gl, programSNOW, "cameraPos", cameraPos);
             setFloatUniform(gl, programSNOW, "heading", heading);
             setFloatUniform(gl, programSNOW, "phi", phi);
             setMat4Uniform(gl, programSNOW, "mProj", projMat);
 
             //SETTING ATTRIBUTES
-            gl.bindBuffer(gl.ARRAY_BUFFER, snowVertBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, weatherVertBuffer);
             var positionLocation = gl.getAttribLocation(programSNOW, "position")
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, snowTexBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, weatherTexBuffer);
             var vTL = gl.getAttribLocation(programSNOW, "texture_coords");
             gl.enableVertexAttribArray(vTL);
             gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-	        gl.bindBuffer(gl.ARRAY_BUFFER, snowCenterBuffer);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, weatherCenterBuffer);
 	        var vCL = gl.getAttribLocation(programSNOW, "center_coords");
 	        gl.enableVertexAttribArray(vCL);
 	        gl.vertexAttribPointer(vCL, 3, gl.FLOAT, false, 3*4, 0);
 	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, snowIndexBuffer);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, weatherIndexBuffer);
             gl.drawElements(gl.TRIANGLES, emitter.indices.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-            gl.useProgram(null);*/
+            gl.useProgram(null);
 
             /*
             var currTime = (new Date().getSeconds());
