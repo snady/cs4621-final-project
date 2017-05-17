@@ -772,7 +772,7 @@
         heading += dheading;
     }
 
-    var terrain = generateTerrain(225, 2);
+    var terrain = generateTerrain(75, 2);
 
     var waterVertices = setFloat32Buffer(gl, [0, 1, 0,
                                               0, 0,
@@ -900,7 +900,7 @@
 
         for (var j=0; j<h; j++) {
             for (var i=0; i<w; i++) {
-                verts.push(i/3.0, elevation[j*w +i], -j/3.0);
+                verts.push(i, elevation[j*w +i], -j);
                 tcoords.push(i*tstep, -j*tstep);
                 biomes.push(getBiome(elevation[j*w + i], moisture[j*w + i]));
             }
@@ -920,7 +920,7 @@
             }
         }
 
-        cameraPos = [ndiv/6, ndiv/6, 0];
+        cameraPos = [ndiv/2, ndiv/2, 0];
         return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
     }
 
