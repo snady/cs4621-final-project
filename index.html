@@ -134,8 +134,8 @@
             gl_FragColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(stone, tcoords);
         } else if (biome >= SAND) {
             gl_FragColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(grass, tcoords);
-        } else {
-            gl_FragColor = (1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords);
+        } else {//
+            gl_FragColor = vec4(((1.0 - biome) * texture2D(sand, tcoords) + biome * texture2D(sand, tcoords)).rgb, 1.0);
         }
     }
 
@@ -213,20 +213,24 @@
         vec2 ndc = ((clipCoords.xy/clipCoords.w)/2.0) + 0.5;
 
         vec2 refractTexCoords = vec2(ndc.x, ndc.y);
-        vec2 reflectTexCoords = vec2(ndc.x, ndc.y);
+        vec2 reflectTexCoords = vec2(ndc.x, 1.0-ndc.y);
 
-        gl_FragColor = texture2D(reflectionMap, reflectTexCoords);
+        //gl_FragColor = mix(texture2D(reflectionMap, reflectTexCoords) , texture2D(refractionMap, refractTexCoords), 0.5);
 
-/*
         vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.02;
         vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.02;
         vec2 distortion = distortion1 + distortion2;
 
         refractTexCoords = refractTexCoords + distortion;
-        vec4 refractColor = texture2D(refractionMap, refractTexCoords);
+        reflectTexCoords = reflectTexCoords + distortion;
 
-        gl_FragColor = mix(refractColor, vec4(0.529, 0.808, 0.98, 1.0), 0.35);
-*/
+        vec4 refractColor = texture2D(refractionMap, refractTexCoords);
+        vec4 reflectColor = texture2D(reflectionMap, reflectTexCoords);
+
+        gl_FragColor = mix(reflectColor , refractColor, 0.5);
+
+        //gl_FragColor = mix(refractColor, vec4(0.529, 0.808, 0.98, 1.0), 0.35);
+
 
 /*        vec2 texCoords1 = vec2(texCoords.x + moveFactor, texCoords.y);
         vec2 texCoords2 = vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor);
@@ -576,6 +580,17 @@
       }
     }
 
+    function createRefractTexture(gl) {
+        var text = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, text);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return text;
+    }
+
     function createFloatTexture(gl, width, height) {
         var text = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, text);
@@ -609,6 +624,19 @@
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.bindTexture(gl.TEXTURE_2D, null);
         return text;
+    }
+
+    function createRenderBuffer(gl, width, height) {
+        var depthBuffer = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+        gl.renderbufferStorage(
+            gl.RENDERBUFFER,
+            gl.DEPTH_COMPONENT16,
+            width,
+            height
+        );
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+        return depthBuffer;
     }
 
     var cameraPos = [];
@@ -674,7 +702,7 @@
                                               74, 1, -74,
                                               1, 1]);
 
-    /*var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
+  /*  var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
                                               0, 0,
                                               1.0, -1.0, 0,
                                               1, 0,
@@ -686,6 +714,8 @@
                                               1, 0,
                                               1.0, 1.0, 0,
                                               1, 1]);*/
+
+    var c = vec4.fromValues(0, -1.0, 0.0, 1.0)
 
     var width = canvas.width();
     var height = canvas.height();
@@ -782,7 +812,6 @@
                 verts.push(i/3.0, elevation[j*w +i], -j/3.0);
                 tcoords.push(i*tstep, -j*tstep);
                 biomes.push(getBiome(elevation[j*w + i], moisture[j*w + i]));
-
             }
         }
 
@@ -836,8 +865,12 @@
         return mCam;
     }
 
-    function getNormalMatrix(viewMatrix) {
-
+    function getNormalMatrix(mCam) {
+        var mI = mat4.create();
+        var mIT = mat4.create();
+        mat4.invert(mI, mCam);
+        mat4.transpose(mIT, mI);
+        return mIT;
     }
 
     //for testing purposes
@@ -915,11 +948,13 @@
     resize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    var refractionTexture = createFloatTexture(gl, gl.canvas.width, gl.canvas.height);
+    var refractionTexture = createRefractTexture(gl);//createFloatTexture(gl, gl.canvas.width/4.0, gl.canvas.height/4.0);
     var refractionFBO = gl.createFramebuffer();
+    var refractionDepth = createRenderBuffer(gl, gl.canvas.width, gl.canvas.height);
 
     var reflectionTexture = createFloatTexture(gl, gl.canvas.width, gl.canvas.height);
     var reflectionFBO = gl.createFramebuffer();
+    var reflectionDepth = createRenderBuffer(gl, gl.canvas.width, gl.canvas.height);
 
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
     var waterProgram = glslProgram("waterVertex", "waterFragment");
@@ -964,8 +999,8 @@
     var moveFactor = 0;
 
     gl.enable(gl.DEPTH_TEST);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.BLEND);
+    /*gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.BLEND);*/
 
         function drawTerrain(mCam, projMat, program) {
             gl.useProgram(program);
@@ -1023,6 +1058,10 @@
         function drawWater(mCam, projMat) {
             gl.useProgram(waterProgram);
 
+            gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gl.canvas);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+
             var currFrame = new Date();
             frameDelta = currFrame - lastFrame;
             lastFrame = currFrame;
@@ -1065,7 +1104,7 @@
 
         function drawReflectionTexture(projMat) {
             var orig_y = cameraPos[1]
-            var vert_d = cameraPos[1] - 0.5;
+            var vert_d = cameraPos[1] - 1.0;
             cameraPos[1] = cameraPos[1] - (2*vert_d);
 
             var orig_phi = phi;
@@ -1080,9 +1119,24 @@
                 gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, reflectionTexture, 0
             );
 
+            /*
+            if  (reflectionDepth != null) {
+                gl.framebufferRenderbuffer(
+                    // First argument is always gl.FRAMEBUFFER
+                    gl.FRAMEBUFFER,
+                    // Second argument indicates the attachment slot.
+                    // Since we want the buffer to serve as the depth buffer, we use the gl.DEPTH_ATTACHMENT slot.
+                    gl.DEPTH_ATTACHMENT,
+                    // We are giving a render buffer instead of a texture, so we use gl.RENDERBUFFER.
+                    gl.RENDERBUFFER,
+                    // Lastly, the render buffer itself.
+                    reflectionDepth
+                )
+            }*/
+
             {
                 gl.clearColor(0.53, 0.81, 0.98, 1.0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
                 drawTerrain(mCam, projMat, reflectProgram);
                 gl.flush();
             }
@@ -1090,6 +1144,17 @@
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
             );
+
+            /*
+            if (reflectionDepth != null) {
+                gl.framebufferRenderbuffer(
+                    gl.FRAMEBUFFER,
+                    gl.DEPTH_ATTACHMENT,
+                    gl.RENDERBUFFER,
+                    null
+                )
+            }*/
+
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
             cameraPos[1] = orig_y;
@@ -1097,15 +1162,31 @@
         }
 
         function drawRefractionTexture(mCam, projMat) {
+            //gl.viewport(0, 0, gl.canvas.width/4.0, gl.canvas.height/4.0);
             gl.bindFramebuffer(gl.FRAMEBUFFER, refractionFBO);
             // Step 2: Attach the texture to the FBO.
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, refractionTexture, 0
             );
 
+            if (refractionDepth != null) {
+                gl.framebufferRenderbuffer(
+                    // First argument is always gl.FRAMEBUFFER
+                    gl.FRAMEBUFFER,
+                    // Second argument indicates the attachment slot.
+                    // Since we want the buffer to serve as the depth buffer, we use the gl.DEPTH_ATTACHMENT slot.
+                    gl.DEPTH_ATTACHMENT,
+                    // We are giving a render buffer instead of a texture, so we use gl.RENDERBUFFER.
+                    gl.RENDERBUFFER,
+                    // Lastly, the render buffer itself.
+                    refractionDepth
+                );
+            }
+
             {
                 gl.clearColor(0.7, 0.7, 0.7, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
                 drawTerrain(mCam, projMat, programTRN);
                 gl.flush();
             }
@@ -1113,7 +1194,17 @@
             gl.framebufferTexture2D(
                 gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
             );
+            if (refractionDepth != null) {
+                gl.framebufferRenderbuffer(
+                    gl.FRAMEBUFFER,
+                    gl.DEPTH_ATTACHMENT,
+                    gl.RENDERBUFFER,
+                    null
+                )
+            }
+
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            //gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         }
 
         function updateWebGL() {
@@ -1132,14 +1223,14 @@
             updateParticles(emitter);
 
             drawReflectionTexture(projMat);
-            drawRefractionTexture(mCam, projMat);
+           // drawRefractionTexture(mCam, projMat);
 
-           drawTerrain(mCam, projMat, reflectProgram);
+            drawTerrain(mCam, projMat, programTRN);
 
-            //drawWater(mCam, projMat);
+            drawWater(mCam, projMat);
 
             //DRAWING SNOW, TESTING
-            gl.useProgram(programSNOW);
+           /* gl.useProgram(programSNOW);
 
             if (programSNOW.texture5 != null) {
                 gl.activeTexture(gl.TEXTURE5);
@@ -1176,7 +1267,7 @@
             gl.drawElements(gl.TRIANGLES, emitter.indices.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-            gl.useProgram(null);
+            gl.useProgram(null);*/
 
             /*
             var currTime = (new Date().getSeconds());
