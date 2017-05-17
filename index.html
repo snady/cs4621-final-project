@@ -133,6 +133,7 @@
     varying vec3 worldCoords;
     uniform sampler2D density;
     uniform vec3 lightDirection;
+    uniform vec3 lightColor;
 
     // Main
     void main() {
@@ -161,7 +162,7 @@
         float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.7,0.7,0.7);
         vec3 l = lightDirection*-1.0;
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
         //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
         gl_FragColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
@@ -492,6 +493,18 @@
             case "ArrowRight":
                 dheading = -0.05;
                 break;
+            case "m":
+                if(timeMode==0){
+                    timeMode = 1;
+                    lightIntensity = [0.3, 0.4, 0.6];
+                    lightDirection = [0.0, -1.0, 0.0];
+                }else if(timeMode == 1){
+                    timeMode = 0;
+                    lightIntensity = [1.0, 0.8, 0.7];
+                    lightDirection = [0.0,-0.866,-0.5];
+                }
+                skybox = initCubeMap(globalGL, globalQ);
+                break;
         }
     });
 
@@ -751,6 +764,9 @@
         return depthBuffer;
     }
 
+    var globalGL;
+    var globalQ;
+
     var cameraPos = [];
     var heading = Math.PI/2
     var phi = 120 * Math.PI/180
@@ -764,6 +780,9 @@
     var mouseDownY = 0.0;
 
     var lightDir = [0.0,-0.866,-0.5];
+    var lightIntensity = [1.0, 0.8, 0.7];
+    var timeMode = 0;
+    var skybox;
 
     //global weather mode constants
     var WEATHER_NONE = 0;
@@ -1096,12 +1115,18 @@
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, CubeMap);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("posx", false));
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("negx", false));
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("negy", false));
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("posy", false));
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("posz", false));
-        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult("negz", false));
+        if(timeMode == 0){
+            var img = "";
+        }else if(timeMode == 1){
+            var img = "s_";
+        }
+
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult(img+"posx", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult(img+"negx", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult(img+"negy", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult(img+"posy", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult(img+"posz", false));
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z ,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE, queue.getResult(img+"negz", false));
 
         gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER,gl.NEAREST);
         gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
@@ -1294,12 +1319,32 @@
             }, {
                 id: "negz",
                 src: "data/cloudtop_negz.png"
+            }, {
+                id: "s_posx",
+                src: "data/space3_posx.png"
+            }, {
+                id: "s_negx",
+                src: "data/space3_negx.png"
+            }, {
+                id: "s_posy",
+                src: "data/space3_posy.png"
+            }, {
+                id: "s_negy",
+                src: "data/space3_negy.png"
+            }, {
+                id: "s_posz",
+                src: "data/space3_posz.png"
+            }, {
+                id: "s_negz",
+                src: "data/space3_negz.png"
             }
         ]);
     }
 
     function runWebGL(queue) {
     var gl = initWebGL(canvas);
+    globalGL = gl;
+    globalQ = queue;
     gl.getExtension("OES_texture_float");
     gl.getExtension("OES_texture_float_linear");
 
@@ -1363,7 +1408,7 @@
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
     var rainTexture = createTexture(gl, queue.getResult("rain", false));
 
-    var skybox = initCubeMap(gl,queue);
+    skybox = initCubeMap(gl,queue);
 
     // var fogDensity = generateFogDensity(gl, 225);
     var fogDensity = createTexture(gl, queue.getResult("fog", false));
@@ -1395,6 +1440,7 @@
             setFloatUniform(gl, program, "time", 200 / 10);
             setVec3Uniform(gl, program, "cameraPos", cameraPos);
             setVec3Uniform(gl, program, "lightDirection", lightDir);
+            setVec3Uniform(gl, program, "lightColor", lightIntensity);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
