@@ -52,59 +52,40 @@
     attribute vec3 position;
     attribute vec2 texture_coords;
     attribute float a_biome;
-    attribute vec3 normal;
 
-    /*uniform vec3 cameraPos;
-    uniform float heading;
-    uniform float phi;
-    */
+    attribute vec3 normal;
+    attribute vec3 tangent1;
+    attribute vec3 tangent2;
 
     uniform mat4 mProj;
     uniform mat4 mCam;
+    uniform mat3 normalMatrix;
+
+    uniform float offsetX;
+    uniform float offsetZ;
 
     varying vec2 tcoords;
     varying float biome;
+
     varying vec3 norm;
+    varying vec3 tan1;
+    varying vec3 tan2;
 
     varying vec3 worldCoords;
 
     void main() {
-        /*
-        vec3 e = cameraPos;
-        //vec3 w = normalize(vec3(cos(heading), cos(phi), -sin(heading)) * -1.0);
-        vec3 w = normalize(vec3(sin(phi)*cos(heading), cos(phi), sin(phi)*-sin(heading)) * -1.0);
-        //vec3 w = vec3(0.0, 0.0, 1.0);
-		vec3 up = normalize(vec3(-cos(heading)*cos(phi), sin(phi), sin(heading)*cos(phi)));
-        vec3 u = cross(up, w);
-        vec3 v = cross(w, u);
-
-        mat4 A = mat4(
-                u.x, v.x, w.x, 0.0,
-                u.y, v.y, w.y, 0.0,
-                u.z, v.z, w.z, 0.0,
-                0.0, 0.0, 0.0, 1.0);
-        mat4 B = mat4(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            -e.x, -e.y, -e.z, 1.0);
-        mat4 mCam = A*B;
-
-        // if (position.y > 6.0) {
-        //     biome = 3.0;
-        // } else if (position.y > 3.0) {
-        //     biome = 2.0;
-        // } else {
-        //     biome = 1.0;
-        // }
-        */
-
        biome = a_biome;
 
        tcoords = texture_coords;
-       gl_Position = mProj*mCam*vec4(position, 1.0);
-       norm = normalize(normal);
-       worldCoords = position;
+
+       vec3 offSetPos = position+vec3(offsetX, 0, offsetZ);
+       gl_Position = mProj*mCam*vec4(offSetPos, 1.0);
+
+       norm = normalize(normalMatrix * normalize(normal));
+       tan1 = normalize(normalMatrix * normalize(tangent1));
+       tan2 = normalize(normalMatrix * normalize(tangent2));
+
+       worldCoords = offSetPos;
     }
 
 </script>
@@ -115,7 +96,7 @@
     #define GRASS 3.0
     #define DRY_GRASS 4.0
     #define STONE 5.0
-    #define SAND 1.0
+    #define SAND 0.75
     #define MT_SNOW 6.0
     #define SAND_AND_GRASS 2.0
 
@@ -125,9 +106,22 @@
     uniform sampler2D sand;
     uniform sampler2D mtSnow;
     uniform sampler2D sandAndGrass;
+
+    uniform sampler2D grassNormals;
+    uniform sampler2D dryGrassNormals;
+    uniform sampler2D stoneNormals;
+    uniform sampler2D sandNormals;
+    uniform sampler2D mtSnowNormals;
+    uniform sampler2D sandAndGrassNormals;
+
+    uniform mat4 mCam;
+
     varying vec2 tcoords;
     varying float biome;
+
     varying vec3 norm;
+    varying vec3 tan1;
+    varying vec3 tan2;
 
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
@@ -137,24 +131,51 @@
 
     // Main
     void main() {
+        float roughness = 0.004;
+        float exposure = 36.0;
+        float bumpiness;
+
         vec4 sceneColor;
+        vec4 normalMap;
+
         if (biome >= MT_SNOW) {
             sceneColor = texture2D(mtSnow, tcoords);
+            normalMap = texture2D(mtSnowNormals, tcoords);
+            bumpiness = 5.0;
         } else if (biome >= STONE) {
             sceneColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
+            normalMap = texture2D(stoneNormals, tcoords);
+            bumpiness = 5.0;
         } else if (biome >= DRY_GRASS) {
             sceneColor = (1.0 - (biome-DRY_GRASS)) * texture2D(dryGrass, tcoords) + (biome-DRY_GRASS) * texture2D(stone, tcoords);
+            normalMap = texture2D(dryGrassNormals, tcoords);
+            bumpiness = 3.0;
         } else if (biome >= GRASS) {
             sceneColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dryGrass, tcoords);
+            normalMap = texture2D(grassNormals, tcoords);
+            bumpiness = 3.0;
         } else if (biome >= SAND_AND_GRASS) {
             sceneColor = (1.0 - (biome-SAND_AND_GRASS)) * texture2D(sandAndGrass, tcoords) + (biome-SAND_AND_GRASS) * texture2D(grass, tcoords);
+            normalMap = texture2D(sandAndGrassNormals, tcoords);
+            bumpiness = 2.5;
         } else if (biome >= SAND) {
             sceneColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(sandAndGrass, tcoords);
+            normalMap = texture2D(sandNormals, tcoords);
+            bumpiness = 1.0;
         } else {
              sceneColor = texture2D(sand, tcoords);
+             normalMap = texture2D(sandNormals, tcoords);
+             bumpiness = 1.0;
         }
 
-        vec3 dir = (cameraPos - worldCoords);
+        vec4 finalColor;
+
+        vec3 v1 = normalize(tan1);
+        vec3 v2 = normalize(tan2);
+
+        vec3 n = normalize(v1 * (normalMap.x - 0.5) * bumpiness + v2 * (normalMap.y - 0.5) * bumpiness + normalize(norm) * (normalMap.z - 0.5));
+
+        vec3 dir = normalize(cameraPos - worldCoords);
         float distance = length(dir);
         float b1 = 0.02;
         float b2 = 0.03;
@@ -162,11 +183,23 @@
         float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.7,0.7,0.7);
         vec3 l = lightDirection*-1.0;
+<<<<<<< HEAD
         gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
+=======
+        vec3 h = normalize(l + dir);
+        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+
+        vec3 diff = sceneColor.rgb * max(dot(l, n),0.0);
+        vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
+        finalColor.rgb = diff;// + spec;
+
+>>>>>>> eb1b330e22e7c46a81ed53941dd8229340cf1924
         //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
-        gl_FragColor.a = sceneColor.a;
+        finalColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
         //gl_FragColor = vec4((norm+ vec3(1,1,1))*0.5,1.0);
+
+        gl_FragColor = finalColor;
     }
 
 </script>
@@ -177,7 +210,7 @@
     #define GRASS 3.0
     #define DRY_GRASS 4.0
     #define STONE 5.0
-    #define SAND 1.0
+    #define SAND 0.75
     #define MT_SNOW 6.0
     #define SAND_AND_GRASS 2.0
 
@@ -187,44 +220,92 @@
     uniform sampler2D sand;
     uniform sampler2D mtSnow;
     uniform sampler2D sandAndGrass;
+
+    uniform sampler2D grassNormals;
+    uniform sampler2D dryGrassNormals;
+    uniform sampler2D stoneNormals;
+    uniform sampler2D sandNormals;
+    uniform sampler2D mtSnowNormals;
+    uniform sampler2D sandAndGrassNormals;
+
+    uniform mat4 mCam;
+
     varying vec2 tcoords;
     varying float biome;
 
+    varying vec3 norm;
+    varying vec3 tan1;
+    varying vec3 tan2;
+
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
-
     uniform sampler2D density;
+    uniform vec3 lightDirection;
 
     // Main
     void main() {
+        float roughness = 0.004;
+        float exposure = 36.0;
+        float bumpiness;
+
         vec4 sceneColor;
+        vec4 normalMap;
+
         if (biome >= MT_SNOW) {
             sceneColor = texture2D(mtSnow, tcoords);
+            normalMap = texture2D(mtSnowNormals, tcoords);
+            bumpiness = 5.0;
         } else if (biome >= STONE) {
             sceneColor = (1.0 - (biome-STONE)) * texture2D(stone, tcoords) + (biome-STONE) * texture2D(mtSnow, tcoords);
+            normalMap = texture2D(stoneNormals, tcoords);
+            bumpiness = 5.0;
         } else if (biome >= DRY_GRASS) {
             sceneColor = (1.0 - (biome-DRY_GRASS)) * texture2D(dryGrass, tcoords) + (biome-DRY_GRASS) * texture2D(stone, tcoords);
+            normalMap = texture2D(dryGrassNormals, tcoords);
+            bumpiness = 3.0;
         } else if (biome >= GRASS) {
             sceneColor = (1.0 - (biome-GRASS)) * texture2D(grass, tcoords) + (biome-GRASS) * texture2D(dryGrass, tcoords);
+            normalMap = texture2D(grassNormals, tcoords);
+            bumpiness = 3.0;
         } else if (biome >= SAND_AND_GRASS) {
             sceneColor = (1.0 - (biome-SAND_AND_GRASS)) * texture2D(sandAndGrass, tcoords) + (biome-SAND_AND_GRASS) * texture2D(grass, tcoords);
+            normalMap = texture2D(sandAndGrassNormals, tcoords);
+            bumpiness = 2.5;
         } else if (biome >= SAND) {
             sceneColor = (1.0 - (biome-SAND)) * texture2D(sand, tcoords) + (biome-SAND) * texture2D(sandAndGrass, tcoords);
+            normalMap = texture2D(sandNormals, tcoords);
+            bumpiness = 1.0;
         } else {
             discard;
-            //gl_FragColor = vec4(0.1,0.2,0.2,1.0);
         }
+        vec4 finalColor;
 
-        vec3 dir = (cameraPos - worldCoords);
+        vec3 v1 = normalize(tan1);
+        vec3 v2 = normalize(tan2);
+
+        vec3 n = normalize(v1 * (normalMap.x - 0.5) * bumpiness + v2 * (normalMap.y - 0.5) * bumpiness + normalize(norm) * (normalMap.z - 0.5));
+
+        vec3 dir = normalize(cameraPos - worldCoords);
         float distance = length(dir);
         float b1 = 0.02;
         float b2 = 0.03;
         float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, tcoords).a;
         float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.7,0.7,0.7);
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
-        gl_FragColor.a = sceneColor.a;
+        vec3 l = lightDirection*-1.0;
+        vec3 h = normalize(l + dir);
+        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+
+        vec3 diff = sceneColor.rgb * max(dot(l, n),0.0);
+        vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
+        finalColor.rgb = diff;// + spec;
+
+        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
+        finalColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
+        //gl_FragColor = vec4((norm+ vec3(1,1,1))*0.5,1.0);
+
+        gl_FragColor = finalColor;
     }
 </script>
 
@@ -236,17 +317,23 @@
     uniform mat4 mCam;
     uniform vec3 cameraPos;
 
+    uniform float offsetX;
+    uniform float offsetZ;
+
     varying vec4 clipCoords;
     varying vec2 texCoords;
     varying vec3 pos_to_cam;
+    varying vec3 worldCoords;
 
     void main() {
         //gl_Position = vec4(position, 1.0);
         //texCoords = texture_coords;
-        clipCoords = mProj*mCam*vec4(position, 1.0);
+        vec3 offSetPos = position+vec3(offsetX, 0, offsetZ);
+        clipCoords = mProj*mCam*vec4(offSetPos, 1.0);
         gl_Position = clipCoords;
         texCoords = 6.0 * texture_coords;
-        pos_to_cam = cameraPos - position;
+        pos_to_cam = cameraPos - offSetPos;
+        worldCoords = offSetPos;
     }
 </script>
 
@@ -256,12 +343,14 @@
     uniform sampler2D refractionMap;
     uniform sampler2D reflectionMap;
     uniform sampler2D dudvMap;
+    uniform sampler2D density;
 
     uniform float moveFactor;
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
     varying vec3 pos_to_cam;
+    varying vec3 worldCoords;
 
     void main() {
         //gl_FragColor = texture2D(reflectionMap, texCoords);
@@ -273,8 +362,8 @@
 
         //gl_FragColor = mix(texture2D(reflectionMap, reflectTexCoords) , texture2D(refractionMap, refractTexCoords), 0.5);
 
-        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.02;
-        vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.02;
+        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.007;
+        vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.007;
         vec2 distortion = distortion1 + distortion2;
 
         refractTexCoords = refractTexCoords + distortion;
@@ -285,29 +374,24 @@
 
         vec3 toCam = normalize(pos_to_cam);
         float rf = dot(toCam, vec3(0.0,1.0,0.0));
-        rf = pow(rf, 7.5);
+        rf = pow(rf, 1.5);
 
-        gl_FragColor = mix(reflectColor , refractColor, rf);
-
-        //gl_FragColor = mix(refractColor, vec4(0.529, 0.808, 0.98, 1.0), 0.35);
+        vec4 sceneColor = mix(reflectColor , refractColor, rf);
 
 
-/*        vec2 texCoords1 = vec2(texCoords.x + moveFactor, texCoords.y);
-        vec2 texCoords2 = vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor);
-
-        vec2 distortion1 = 0.3 * ((texture2D(dudvMap, texCoords1).rg * 2.0) - 1.0);
-        vec2 distortion2 = 0.3 * ((texture2D(dudvMap, texCoords2).rg * 2.0) - 1.0);
-        vec2 distortion = distortion1 + distortion2;
-
-        refractTexCoords = refractTexCoords + distortion;
-        vec4 refraction = texture2D(refractionMap, refractTexCoords);
-
-        gl_FragColor = mix(refractionMap, vec4(0.529, 0.808, 0.98, 1.0), 0.35);*/
-
-       //gl_FragColor = mix(texture2D(refractionMap, ndc), vec4(0.529, 0.808, 0.98, 1.0), 0.35);
+        /*vec3 dir = pos_to_cam;
+        float distance = length(dir);
+        float b1 = 0.02;
+        float b2 = 0.03;
+        float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, texCoords).a;
+        float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, texCoords).a;
+        vec3 fogColor = vec3(0.7,0.7,0.7);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
+        gl_FragColor.a = sceneColor.a;*/
+        gl_FragColor = sceneColor;
+        // gl_FragColor = texture2D(density, tcoords);
 
     }
-
 </script>
 
 <script id="vertexSNOW" type="x-shader/x-vertex">
@@ -827,20 +911,36 @@
         heading += dheading;
     }
 
-    var terrain = generateTerrain(225, 2);
+    var terrainBuffers = [];
+    terrainBuffers.push(getTerrain(250, 2, 0, 0));
+    terrainBuffers.push(getTerrain(250, 2, 0, 249));
+    terrainBuffers.push(getTerrain(250, 2, 249, 249));
 
     var waterVertices = setFloat32Buffer(gl, [0, 1, 0,
                                               0, 0,
-                                              74, 1, 0,
+                                              249, 1, 0,
                                               1, 0,
-                                              0, 1, -74,
+                                              0, 1, -249,
                                               0, 1,
-                                              0, 1, -74,
+                                              0, 1, -249,
                                               0, 1,
-                                              74, 1, 0,
+                                              249, 1, 0,
                                               1, 0,
-                                              74, 1, -74,
+                                              249, 1, -249,
                                               1, 1]);
+
+   /* var oceanVertices1 = setFloat32Buffer(gl, [-6000, 0.75, 6000,
+                                              0, 0,
+                                              6000, 0.75, 6000,
+                                              1, 0,
+                                              -6000, 0.75, -6000,
+                                              0, 1,
+                                              -6000, 0.75, -6000,
+                                              0, 1,
+                                              6000, 0.75, 6000,
+                                              1, 0,
+                                              6000, 0.75, -6000,
+                                              1, 1]);*/
 
   /*  var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
                                               0, 0,
@@ -855,18 +955,26 @@
                                               1.0, 1.0, 0,
                                               1, 1]);*/
 
-    var c = vec4.fromValues(0, -1.0, 0.0, 1.0)
+    var cplane = vec4.fromValues(0, -1.0, 0.0, 1.0)
 
     var width = canvas.width();
     var height = canvas.height();
 
-    var vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
-    var indexBuffer = setUInt16Buffer(gl, terrain.indices);
-    var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
-    var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
-    var normalBuffer = setFloat32Buffer(gl, terrain.normals);
+    function getTerrain(ndiv, ntex, offsetX, offsetZ) {
+        var terrain = generateTerrain(ndiv, ntex);
+        terrain.vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
+        terrain.indexBuffer = setUInt16Buffer(gl, terrain.indices);
+        terrain.textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
+        terrain.biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
+        terrain.normalBuffer = setFloat32Buffer(gl, terrain.normals);
+        terrain.tangent1Buffer = setFloat32Buffer(gl, terrain.tangent1s);
+        terrain.tangent2Buffer = setFloat32Buffer(gl, terrain.tangent2s);
+        terrain.offsetX = offsetX;
+        terrain.offsetZ = offsetZ;
+        return terrain
+    }
 
-    var boxRad = 100.0;
+    var boxRad = 2500.0;
     var vertexDataSkybox = [
     -boxRad,-boxRad,boxRad,
     boxRad,-boxRad,boxRad,
@@ -900,11 +1008,11 @@
         var DRY_GRASS = 4.0;
         var STONE = 5.0;
         var SAND_AND_GRASS = 2.0;
-        var SAND = 1.0;
+        var SAND = 0.75;
         var MT_SNOW = 6.0;
         var WATER = 0.0;
 
-        if (elevation < 1.0) {
+        if (elevation < 0.75) {
             return WATER;
         }
         var b = elevation * moisture;
@@ -923,12 +1031,20 @@
         }
     }
 
+    function distance(p1, p2) {
+        var xDiff = Math.pow(p2[0] - p1[0], 2.0);
+        var yDiff = Math.pow(p2[1] - p1[1], 2.0);
+        return Math.sqrt(xDiff + yDiff);
+    }
+
     function generateTerrain(ndiv, ntex) {
         var w = ndiv;
         var h = ndiv;
         var tstep = ntex/(ndiv/15.0);
         var p = genP();
         var elevData = [];
+
+        var center = [0.5,0.5];
 
         var elev;
         var a = .05;
@@ -938,7 +1054,9 @@
         var redistrib = 8;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
-                elev = perlin(2 * i / w, 2 * j / h, p, 20);
+                var dist = 0.25 * distance(center, [i/(w-1), j/(h-1)]);
+
+                elev = perlin(5 * i / w, 5 * j / h, p, 20) - dist;
                 elev = Math.pow(Math.sin(1.5*elev), redistrib);
                 // if (elev > .5) {
                 //     elev = Math.pow(elev, -redistrib) / 2.0;
@@ -951,7 +1069,7 @@
         var maxVal = Math.max.apply(null, elevData);
 
 		var elevation = [];
-        var maxElev = 15;
+        var maxElev = 25;
 
 		for (var i = 0; i < elevData.length; i++) {
 			elevation.push(maxElev * (elevData[i] - minVal) / (maxVal - minVal));
@@ -963,7 +1081,7 @@
         var redistrib2 = 2;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
-                moist = perlin(10 * i / w, 10 * j / h, p2, 10);
+                moist = perlin(7 * i / w, 7 * j / h, p2, 10);
 				moistureData.push(Math.pow(moist, redistrib2));
 			}
 		}
@@ -980,13 +1098,36 @@
         var verts = [];
         var indices = [];
         var tcoords = [];
-        var norms = [] 
+        var norms = [];
+        var tangent1s = [];
+        var tangent2s = [];
         var biomes = [];
         var idx = 0;
 
         for (var j=0; j<h; j++) {
+            var y;
+            var e = elevation[j*w +i];
             for (var i=0; i<w; i++) {
-                verts.push(i/3.0, elevation[j*w +i], -j/3.0);
+                if (i <= 1) {
+                    y = i;
+                }
+                else if (i >= w-2) {
+                    y = w-1 - i;
+                }
+                else if (j <= 1) {
+                    y = j;
+                }
+                else if (j >= h-2) {
+                    y = h-1 - j;
+                }
+                else {
+                    y = elevation[j*w +i];
+                }
+
+                if (e <= 1.0 && y <= 1) {
+                    y = 0.01;
+                }
+                verts.push(i/1.0, y, -j/1.0);
                 tcoords.push(i*tstep, -j*tstep);
                 biomes.push(getBiome(elevation[j*w + i], moisture[j*w + i]));
             }
@@ -1016,50 +1157,123 @@
                 vec3.cross(norm2, v3, v4);
                 vec3.normalize(norm2, norm2);
 
+                var v5 = vec3.fromValues(verts[tRight*3]-verts[tLeft*3], verts[tRight*3+1]-verts[tLeft*3+1], verts[tRight*3+2]-verts[tLeft*3+2]);
+
+                vec3.normalize(v1, v1);
+                vec3.normalize(v2, v2);
+                vec3.normalize(v3, v3);
+                vec3.normalize(v4, v4);
+                vec3.normalize(v5, v5);
+
                 if(norms[bLeft*3]==undefined){
                     norms[bLeft*3] = norm1[0];
                     norms[bLeft*3+1] = norm1[1];
                     norms[bLeft*3+2] = norm1[2];
+
+                    tangent1s[bLeft*3] = v1[0];
+                    tangent1s[bLeft*3+1] = v1[1];
+                    tangent1s[bLeft*3+2] = v1[2];
+
+                    tangent2s[bLeft*3] = v2[0];
+                    tangent2s[bLeft*3+1] = v2[1];
+                    tangent2s[bLeft*3+2] = v2[2];
                 }else{
                     norms[bLeft*3] += norm1[0];
                     norms[bLeft*3+1] += norm1[1];
                     norms[bLeft*3+2] += norm1[2];
+
+                    tangent1s[bLeft*3] += v1[0];
+                    tangent1s[bLeft*3+1] += v1[1];
+                    tangent1s[bLeft*3+2] += v1[2];
+
+                    tangent2s[bLeft*3] += v2[0];
+                    tangent2s[bLeft*3+1] += v2[1];
+                    tangent2s[bLeft*3+2] += v2[2];
                 }
 
                 if(norms[bRight*3]==undefined){
                     norms[bRight*3] = norm1[0] + norm2[0];
                     norms[bRight*3+1] = norm1[1] + norm2[1];
                     norms[bRight*3+2] = norm1[2] + norm2[2];
+
+                    tangent1s[bRight*3] = v1[0];
+                    tangent1s[bRight*3+1] = v1[1];
+                    tangent1s[bRight*3+2] = v1[2];
+
+                    tangent2s[bRight*3] = v3[0];
+                    tangent2s[bRight*3+1] = v3[1];
+                    tangent2s[bRight*3+2] = v3[2];
                 }else{
                     norms[bRight*3] += norm1[0] + norm2[0];
                     norms[bRight*3+1] += norm1[1] + norm2[1];
                     norms[bRight*3+2] += norm1[2] + norm2[2];
+
+                    tangent1s[bRight*3] += v1[0];
+                    tangent1s[bRight*3+1] += v1[1];
+                    tangent1s[bRight*3+2] += v1[2];
+
+                    tangent2s[bRight*3] += v3[0];
+                    tangent2s[bRight*3+1] += v3[1];
+                    tangent2s[bRight*3+2] += v3[2];
                 }
 
                 if(norms[tLeft*3]==undefined){
                     norms[tLeft*3] = norm1[0] + norm2[0];
                     norms[tLeft*3+1] = norm1[1] + norm2[1];
                     norms[tLeft*3+2] = norm1[2] + norm2[2];
+
+                    tangent1s[tLeft*3] = v5[0];
+                    tangent1s[tLeft*3+1] = v5[1];
+                    tangent1s[tLeft*3+2] = v5[2];
+
+                    tangent2s[tLeft*3] = v2[0];
+                    tangent2s[tLeft*3+1] = v2[1];
+                    tangent2s[tLeft*3+2] = v2[2];
                 }else{
                     norms[tLeft*3] += norm1[0] + norm2[0];
                     norms[tLeft*3+1] += norm1[1] + norm2[1];
                     norms[tLeft*3+2] += norm1[2] + norm2[2];
+
+                    tangent1s[tLeft*3] += v5[0];
+                    tangent1s[tLeft*3+1] += v5[1];
+                    tangent1s[tLeft*3+2] += v5[2];
+
+                    tangent2s[tLeft*3] += v2[0];
+                    tangent2s[tLeft*3+1] += v2[1];
+                    tangent2s[tLeft*3+2] += v2[2];
                 }
 
                 if(norms[tRight*3]==undefined){
                     norms[tRight*3] = norm2[0];
                     norms[tRight*3+1] = norm2[1];
                     norms[tRight*3+2] = norm2[2];
+
+                    tangent1s[tRight*3] = v5[0];
+                    tangent1s[tRight*3+1] = v5[1];
+                    tangent1s[tRight*3+2] = v5[2];
+
+                    tangent2s[tRight*3] = v3[0];
+                    tangent2s[tRight*3+1] = v3[1];
+                    tangent2s[tRight*3+2] = v3[2];
                 }else{
                     norms[tRight*3] += norm2[0];
                     norms[tRight*3+1] += norm2[1];
                     norms[tRight*3+2] += norm2[2];
+
+                    tangent1s[tRight*3] = v5[0];
+                    tangent1s[tRight*3+1] = v5[1];
+                    tangent1s[tRight*3+2] = v5[2];
+
+                    tangent2s[tRight*3] = v3[0];
+                    tangent2s[tRight*3+1] = v3[1];
+                    tangent2s[tRight*3+2] = v3[2];
                 }
             }
         }
 
         cameraPos = [ndiv/6, ndiv/6, 0];
-        return {vertices: verts, indices: indices, normals: norms, texture_coords: tcoords, biomes: biomes};
+        return {vertices: verts, indices: indices, normals: norms, texture_coords: tcoords, biomes: biomes,
+                tangent1s: tangent1s, tangent2s: tangent2s};
     }
 
     function generateFogDensity(gl, ndiv) {
@@ -1166,12 +1380,17 @@
         return mCam;
     }
 
-    function getNormalMatrix(mCam) {
+    function getNormalMatrices(mCam) {
         var mI = mat4.create();
         var mIT = mat4.create();
         mat4.invert(mI, mCam);
         mat4.transpose(mIT, mI);
-        return mIT;
+
+        return [mat3.fromValues(
+                mIT[0], mIT[1], mIT[2],
+                mIT[4], mIT[5], mIT[6],
+                mIT[8], mIT[9], mIT[10]
+        ), mIT];
     }
 
     var emitter = new Emitter(50,50,-50, 75, 75, WEATHER_MODE);
@@ -1373,6 +1592,13 @@
     programTRN["texture5"] = gl.getUniformLocation(programTRN, "sandAndGrass");
     programTRN["texture6"] = gl.getUniformLocation(programTRN, "density");
 
+    programTRN["texture7"] = gl.getUniformLocation(programTRN, "grassNormals");
+    programTRN["texture8"] = gl.getUniformLocation(programTRN, "stoneNormals");
+    programTRN["texture9"] = gl.getUniformLocation(programTRN, "sandNormals");
+    programTRN["texture10"] = gl.getUniformLocation(programTRN, "mtSnowNormals");
+    programTRN["texture11"] = gl.getUniformLocation(programTRN, "dryGrassNormals");
+    programTRN["texture12"] = gl.getUniformLocation(programTRN, "sandAndGrassNormals");
+
     reflectProgram["texture0"] = gl.getUniformLocation(reflectProgram, "grass");
     reflectProgram["texture1"] = gl.getUniformLocation(reflectProgram, "stone");
     reflectProgram["texture2"] = gl.getUniformLocation(reflectProgram, "sand");
@@ -1381,9 +1607,17 @@
     reflectProgram["texture5"] = gl.getUniformLocation(reflectProgram, "sandAndGrass");
     reflectProgram["texture6"] = gl.getUniformLocation(reflectProgram, "density");
 
+    reflectProgram["texture7"] = gl.getUniformLocation(reflectProgram, "grassNormals");
+    reflectProgram["texture8"] = gl.getUniformLocation(reflectProgram, "stoneNormals");
+    reflectProgram["texture9"] = gl.getUniformLocation(reflectProgram, "sandNormals");
+    reflectProgram["texture10"] = gl.getUniformLocation(reflectProgram, "mtSnowNormals");
+    reflectProgram["texture11"] = gl.getUniformLocation(reflectProgram, "dryGrassNormals");
+    reflectProgram["texture12"] = gl.getUniformLocation(reflectProgram, "sandAndGrassNormals");
+
     waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
     waterProgram["texture2"] = gl.getUniformLocation(waterProgram, "dudvMap");
+    //waterProgram["texture3"] = gl.getUniformLocation(waterProgram, "density");
 
     programSNOW["texture0"] = gl.getUniformLocation(programSNOW, "snow");
     programSNOW["texture1"] = gl.getUniformLocation(programSNOW, "rain");
@@ -1400,7 +1634,7 @@
     var grassNormals = createTexture(gl, queue.getResult("grassNormals", false));
     var sandNormals = createTexture(gl, queue.getResult("sandNormals", false));
     var stoneNormals = createTexture(gl, queue.getResult("stoneNormals", false));
-    var stoneNormals = createTexture(gl, queue.getResult("mtSnowNormals", false));
+    var mtSnowNormals = createTexture(gl, queue.getResult("mtSnowNormals", false));
     var dryGrassNormals = createTexture(gl, queue.getResult("dryGrassNormals", false));
     var sandAndGrassNormals = createTexture(gl, queue.getResult("sandAndGrassNormals", false));
 
@@ -1432,15 +1666,46 @@
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
 
-        function drawTerrain(mCam, projMat, program) {
+        function drawTerrain(mCam, projMat, program, terrain) {
             gl.useProgram(program);
 
-            setMat4Uniform(gl, program, "mProj", projMat);
+            var nMatrices = getNormalMatrices(mCam)
+            var normalMatrix = nMatrices[0];
+
+            var cplane = vec4.fromValues(0, -1.0, 0.0, 1.0);
+            //var plane = vec4.fromValues(cplane[0], cplane[1], cplane[2], cplane[3]);
+            //vec4.transformMat4(plane, plane, nMatrices[1]);
+            var plane = vec4.fromValues(0., 0.532172, -0.846637,100.0);
+            /*var projMatInv = mat4.create();
+            mat4.invert(projMatInv, projMat);
+
+            var q = vec4.create();
+            var a = vec4.fromValues(Math.sign(plane[0]), Math.sign(plane[1]), 1.0, 1.0);
+            vec4.transformMat4(q, a, projMatInv);
+
+            var c = vec4.create();
+            var factor = 2.0 / vec4.dot(plane, q);
+            vec4.multiply(c, plane, factor);*/
+
+            var projMat2 = mat4.clone(projMat);
+            //projMat2[2] = plane[0] - projMat2[3];
+            //projMat2[6] = plane[1] - projMat2[7];
+            //projMat2[10] = plane[2] - projMat2[11];
+           //projMat2[14] = plane[3] - projMat2[15] - 1.0;
+            //console.log(mCam);
+
+
+            setMat4Uniform(gl, program, "mProj", projMat2);
             setMat4Uniform(gl, program, "mCam", mCam);
-            setFloatUniform(gl, program, "time", 200 / 10);
             setVec3Uniform(gl, program, "cameraPos", cameraPos);
             setVec3Uniform(gl, program, "lightDirection", lightDir);
+<<<<<<< HEAD
             setVec3Uniform(gl, program, "lightColor", lightIntensity);
+=======
+            setMat3Uniform(gl, program, "normalMatrix", normalMatrix);
+            setFloatUniform(gl, program, "offsetX", terrain.offsetX);
+            setFloatUniform(gl, program, "offsetZ", terrain.offsetZ);
+>>>>>>> eb1b330e22e7c46a81ed53941dd8229340cf1924
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
@@ -1483,56 +1748,93 @@
                 gl.bindTexture(gl.TEXTURE_2D, fogDensity);
                 gl.uniform1i(program.texture6, 6);
             }
+            if (program.texture7 != null) {
+                gl.activeTexture(gl.TEXTURE7);
+                gl.bindTexture(gl.TEXTURE_2D, grassNormals);
+                gl.uniform1i(program.texture7, 7);
+            }
+            if (program.texture8 != null) {
+                gl.activeTexture(gl.TEXTURE8);
+                gl.bindTexture(gl.TEXTURE_2D, stoneNormals);
+                gl.uniform1i(program.texture8, 8);
+            }
+            if (program.texture9 != null) {
+                gl.activeTexture(gl.TEXTURE9);
+                gl.bindTexture(gl.TEXTURE_2D, sandNormals);
+                gl.uniform1i(program.texture9, 9);
+            }
+            if (program.texture10 != null) {
+                gl.activeTexture(gl.TEXTURE10);
+                gl.bindTexture(gl.TEXTURE_2D, mtSnowNormals);
+                gl.uniform1i(program.texture10, 10);
+            }
+            if (program.texture11 != null) {
+                gl.activeTexture(gl.TEXTURE11);
+                gl.bindTexture(gl.TEXTURE_2D, dryGrassNormals);
+                gl.uniform1i(program.texture11, 11);
+            }
+            if (program.texture12 != null) {
+                gl.activeTexture(gl.TEXTURE12);
+                gl.bindTexture(gl.TEXTURE_2D, sandAndGrassNormals);
+                gl.uniform1i(program.texture12, 12);
+            }
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, terrain.vertexBuffer);
             var positionLocation = gl.getAttribLocation(program, "position")
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, terrain.normalBuffer);
             var normalLocation = gl.getAttribLocation(program, "normal")
             gl.enableVertexAttribArray(normalLocation);
             gl.vertexAttribPointer(normalLocation,3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, terrain.textureBuffer);
             var vTL = gl.getAttribLocation(program, "texture_coords");
             gl.enableVertexAttribArray(vTL);
             gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, biomeBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, terrain.biomeBuffer);
             var biomeLocation = gl.getAttribLocation(program, "a_biome");
             gl.enableVertexAttribArray(biomeLocation);
             gl.vertexAttribPointer(biomeLocation, 1, gl.FLOAT, false, 4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, terrain.tangent1Buffer);
+            var tan1Loc = gl.getAttribLocation(program, "tangent1")
+            gl.enableVertexAttribArray(tan1Loc);
+            gl.vertexAttribPointer(tan1Loc,3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, terrain.tangent2Buffer);
+            var tan2Loc = gl.getAttribLocation(program, "tangent2")
+            gl.enableVertexAttribArray(tan2Loc);
+            gl.vertexAttribPointer(tan2Loc,3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, terrain.indexBuffer);
             gl.drawElements(gl.TRIANGLES, terrain.indices.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
             gl.useProgram(null);
         }
 
-        function drawWater(mCam, projMat) {
+        function drawWater(mCam, projMat, terrain, moveFactor) {
             gl.useProgram(waterProgram);
 
             gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gl.canvas);
             gl.bindTexture(gl.TEXTURE_2D, null);
 
-            var currFrame = new Date();
-            frameDelta = currFrame - lastFrame;
-            lastFrame = currFrame;
-
-            moveFactor = moveFactor + (0.0001 * frameDelta);
-            moveFactor = moveFactor % 1.0;
-
             setMat4Uniform(gl, waterProgram, "mProj", projMat);
             setMat4Uniform(gl, waterProgram, "mCam", mCam);
             setFloatUniform(gl, waterProgram, "moveFactor", moveFactor);
             setVec3Uniform(gl, waterProgram, "cameraPos", cameraPos);
+            setFloatUniform(gl, waterProgram, "offsetX", terrain.offsetX);
+            setFloatUniform(gl, waterProgram, "offsetZ", terrain.offsetZ);
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
@@ -1547,6 +1849,17 @@
                 gl.bindTexture(gl.TEXTURE_2D, waterDuDvMap);
                 gl.uniform1i(waterProgram.texture2, 2);
             }
+            /*if (waterProgram.texture3 != null) {
+                // if (delay == 0) {
+                //     densityIdx = (densityIdx+1) % 20;
+                //     delay = FOG_DELAY;
+                // } else {
+                //     delay--;
+                // }
+                gl.activeTexture(gl.TEXTURE3);
+                gl.bindTexture(gl.TEXTURE_2D, fogDensity);
+                gl.uniform1i(waterProgram.texture3, 3);
+            }*/
 
             gl.bindBuffer(gl.ARRAY_BUFFER, waterVertices);
             var posLoc = gl.getAttribLocation(waterProgram, "position")
@@ -1565,7 +1878,7 @@
 
         function drawReflectionTexture(projMat) {
             var orig_y = cameraPos[1]
-            var vert_d = cameraPos[1] - 1.0;
+            var vert_d = cameraPos[1] - 0.75;
             cameraPos[1] = cameraPos[1] - (2*vert_d);
 
             var orig_phi = phi;
@@ -1598,7 +1911,10 @@
             {
                 gl.clearColor(0.25, 0.45, 0.75, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                drawTerrain(mCam, projMat, reflectProgram);
+                terrainBuffers.forEach(function (tb) {
+                    drawTerrain(mCam, projMat, reflectProgram, tb);
+                })
+                drawSkybox(mCam, projMat);
                 gl.flush();
             }
 
@@ -1648,7 +1964,7 @@
                 gl.clearColor(0.7, 0.7, 0.7, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                drawTerrain(mCam, projMat, programTRN);
+                drawTerrain(mCam, projMat, programTRN, terrainBuffer);
                 gl.flush();
             }
 
@@ -1677,7 +1993,7 @@
 
             if (skyboxProgram.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_CUBE_MAP, skybox); 
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, skybox);
                 gl.uniform1i(skyboxProgram.texture0, 0);
             }
 
@@ -1699,7 +2015,7 @@
             resize(gl.canvas);
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             var projMat = mat4.create();
-            mat4.perspective(projMat, fov, gl.canvas.width/gl.canvas.height, 0.1, 200.0);
+            mat4.perspective(projMat, fov, gl.canvas.width/gl.canvas.height, 0.1, 6000.0);
 
         	gl.clearColor(0.7, 0.7, 0.7, 1.0);
         	gl.clear(gl.COLOR_BUFFER_BIT);
@@ -1713,9 +2029,19 @@
             drawReflectionTexture(projMat);
            // drawRefractionTexture(mCam, projMat);
 
-            drawTerrain(mCam, projMat, programTRN);
+            terrainBuffers.forEach(function (tb) {
+                drawTerrain(mCam, projMat, programTRN, tb);
+            });
 
-            drawWater(mCam, projMat);
+            var currFrame = new Date();
+            frameDelta = currFrame - lastFrame;
+            lastFrame = currFrame;
+
+            moveFactor = moveFactor + (0.0001 * frameDelta);
+            moveFactor = moveFactor % 1.0;
+            terrainBuffers.forEach(function (tb) {
+                drawWater(mCam, projMat, tb, moveFactor);
+            });
 
             drawSkybox(mCam, projMat);
 
