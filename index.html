@@ -389,11 +389,25 @@
 <script id="fragmentSNOW" type="x-shader/x-fragment">
     precision highp float;
 
+    uniform int mode;
     uniform sampler2D snow;
+    uniform sampler2D rain;
+
     varying vec2 tcoords;
 
+    vec4 color;
     void main(){
-    	gl_FragColor = texture2D(snow, tcoords);
+    	if( mode == 1 ){
+    		gl_FragColor = texture2D(snow, tcoords);
+    	}
+    	if( mode == 2 ){
+    		color = texture2D(rain, tcoords);
+    		color.x = color.x*0.7;
+    		color.y = color.y*0.7;
+    		color.z = color.z*0.8;
+    		color.a = color.a*0.5;
+    		gl_FragColor = color;
+    	}
     }
 
 </script>
@@ -720,6 +734,8 @@
     var WEATHER_SNOW = 1;
     var WEATHER_RAIN = 2;
 
+    var WEATHER_MODE = WEATHER_RAIN;
+
     function updateCam(){
         var w = vec3.create();
         var u = vec3.create();
@@ -995,19 +1011,19 @@
         return mIT;
     }
 
-    var emitter = new Emitter(50,50,-50, 75, 75);
+    var emitter = new Emitter(50,50,-50, 75, 75, WEATHER_MODE);
 
-    var snowVertBuffer;
-    var snowTexBuffer;
-    var snowIndexBuffer;
-    var snowCenterBuffer;
+    var weatherVertBuffer;
+    var weatherTexBuffer;
+    var weatherIndexBuffer;
+    var weatherCenterBuffer;
 
     function updateParticles(emitter){
     	emitter.update(1);
-    	snowVertBuffer = setFloat32BufferD(gl, emitter.vertices);
-    	snowTexBuffer = setFloat32Buffer(gl, emitter.texture_coords);
-    	snowIndexBuffer = setUInt16Buffer(gl, emitter.indices);
-    	snowCenterBuffer = setFloat32BufferD(gl, emitter.center_coords);
+    	weatherVertBuffer = setFloat32BufferD(gl, emitter.vertices);
+    	weatherTexBuffer = setFloat32Buffer(gl, emitter.texture_coords);
+    	weatherIndexBuffer = setUInt16Buffer(gl, emitter.indices);
+    	weatherCenterBuffer = setFloat32BufferD(gl, emitter.center_coords);
     }
 
     function startWebGL() {
@@ -1062,6 +1078,9 @@
             }, {
                 id: "fog",
                 src: "data/fog0.png"
+            }, {
+            	id: "rain",
+            	src: "data/rain.png"
             // }, {
             //     id: "fog1",
             //     src: "data/fog1.png"
@@ -1164,7 +1183,8 @@
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
     waterProgram["texture2"] = gl.getUniformLocation(waterProgram, "dudvMap");
 
-    programSNOW["texture5"] = gl.getUniformLocation(programSNOW, "snow");
+    programSNOW["texture0"] = gl.getUniformLocation(programSNOW, "snow");
+    programSNOW["texture1"] = gl.getUniformLocation(programSNOW, "rain");
 
     var grassTexture = createTexture(gl, queue.getResult("grass", false));
     var sandTexture = createTexture(gl, queue.getResult("sand", false));
@@ -1182,6 +1202,7 @@
 
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
+    var rainTexture = createTexture(gl, queue.getResult("rain", false));
 
     // var fogDensity = generateFogDensity(gl, 225);
     var fogDensity = createTexture(gl, queue.getResult("fog", false));
@@ -1202,8 +1223,8 @@
     var moveFactor = 0;
 
     gl.enable(gl.DEPTH_TEST);
-    /*gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.BLEND);*/
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.BLEND);
 
         function drawTerrain(mCam, projMat, program) {
             gl.useProgram(program);
@@ -1446,7 +1467,7 @@
             updateCam();
             var mCam = getViewMatrix();
 
-            updateParticles(emitter);
+            updateParticles(emitter, );
 
             drawReflectionTexture(projMat);
            // drawRefractionTexture(mCam, projMat);
@@ -1456,44 +1477,50 @@
             drawWater(mCam, projMat);
 
             //DRAWING SNOW, TESTING
-           /* gl.useProgram(programSNOW);
+            gl.useProgram(programSNOW);
 
-            if (programSNOW.texture5 != null) {
-                gl.activeTexture(gl.TEXTURE5);
+            if (programSNOW.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, snowTexture);
-                gl.uniform1i(programSNOW.texture5, 5);
+                gl.uniform1i(programSNOW.texture0, 0);
+            }
+            if (programSNOW.texture1 != null) {
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, rainTexture);
+                gl.uniform1i(programSNOW.texture1, 1);
             }
 
             //SETTING UNIFORMS
+            setIntUniform(gl, programSNOW, "mode", WEATHER_MODE);
             setVec3Uniform(gl, programSNOW, "cameraPos", cameraPos);
             setFloatUniform(gl, programSNOW, "heading", heading);
             setFloatUniform(gl, programSNOW, "phi", phi);
             setMat4Uniform(gl, programSNOW, "mProj", projMat);
 
             //SETTING ATTRIBUTES
-            gl.bindBuffer(gl.ARRAY_BUFFER, snowVertBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, weatherVertBuffer);
             var positionLocation = gl.getAttribLocation(programSNOW, "position")
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, snowTexBuffer);
+            gl.bindBuffer(gl.ARRAY_BUFFER, weatherTexBuffer);
             var vTL = gl.getAttribLocation(programSNOW, "texture_coords");
             gl.enableVertexAttribArray(vTL);
             gl.vertexAttribPointer(vTL, 2, gl.FLOAT, false, 2*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-	        gl.bindBuffer(gl.ARRAY_BUFFER, snowCenterBuffer);
+	        gl.bindBuffer(gl.ARRAY_BUFFER, weatherCenterBuffer);
 	        var vCL = gl.getAttribLocation(programSNOW, "center_coords");
 	        gl.enableVertexAttribArray(vCL);
 	        gl.vertexAttribPointer(vCL, 3, gl.FLOAT, false, 3*4, 0);
 	        gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, snowIndexBuffer);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, weatherIndexBuffer);
             gl.drawElements(gl.TRIANGLES, emitter.indices.length, gl.UNSIGNED_SHORT, 0);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-            gl.useProgram(null);*/
+            gl.useProgram(null);
 
             /*
             var currTime = (new Date().getSeconds());

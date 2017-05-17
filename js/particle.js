@@ -1,9 +1,20 @@
-function Particle(x, y, z){
+//global weather mode constants
+var WEATHER_NONE = 0;
+var WEATHER_SNOW = 1;
+var WEATHER_RAIN = 2;
+
+function Particle(x, y, z, weatherType){
 	this.startPos = {"x": x, "y": y, "z": z};
 	this.position = {"x": x, "y": y, "z": z};
 
-	this.velocity = {"x": (Math.random()*0.1)-0.1, "y": (Math.random()*0.4)+0.1, "z": (Math.random()*0.1)-0.1};
-
+	if(weatherType == WEATHER_SNOW){
+		this.velocity = {"x": (Math.random()*0.1)-0.1, "y": (Math.random()*0.4)+0.1, "z": (Math.random()*0.1)-0.1};
+	}else if(weatherType == WEATHER_RAIN){
+		var signx = Math.random() < 0.5 ? -1 : 1;
+		var signz = Math.random() < 0.5 ? -1 : 1;
+		this.velocity = {"x": signx*Math.random()*0.1, "y": Math.random()+0.6, "z": signz*Math.random()*0.1};
+		// this.velocity = {"x": 0, "y": Math.random()+0.6, "z": 0};
+	}
 	this.update = function(dt, endHeight) {
 		this.position.x += this.velocity.x * dt;
 		this.position.y -= this.velocity.y * dt;
@@ -12,7 +23,7 @@ function Particle(x, y, z){
 
 }
 
-function Emitter(x, y, z, width, height){
+function Emitter(x, y, z, width, height, weatherType){
 	
 	this.totalParticles = 1000;
 	this.particlePool = [];
@@ -26,10 +37,16 @@ function Emitter(x, y, z, width, height){
 	this.texture_coords = [];
 	this.center_coords = [];
 
+	if(weatherType == WEATHER_SNOW){
+		this.particleSize = 0.5;
+	}else if(weatherType == WEATHER_RAIN){
+		this.particleSize = 3;
+	}
+
 	for( var i = 0; i < this.totalParticles; i++ ){
-		var p = new Particle(Math.random()*width,y,-Math.random()*height);
+		var p = new Particle(Math.random()*width,y,-Math.random()*height, weatherType);
 		this.particlePool.push(p);
-		addSquare(p.position.x, p.position.y, p.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords);
+		addSquare(p.position.x, p.position.y, p.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords, weatherType);
 	}
 
 	this.update = function(dt) {
@@ -81,7 +98,7 @@ function Emitter(x, y, z, width, height){
 	}
 }
 
-function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer, cbuffer){
+function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer, cbuffer, weatherType){
 	var c = vbuffer.length/3;
 	vbuffer.push(llx, lly, llz, llx+len, lly, llz, llx+len, lly+len, llz, llx, lly+len, llz);
 	ibuffer.push(c, c+1, c+2, c+2, c+3, c);
