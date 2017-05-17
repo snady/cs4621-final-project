@@ -314,6 +314,8 @@
 
     uniform float offsetX;
     uniform float offsetZ;
+    uniform float tilingX;
+    uniform float tilingY;
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
@@ -326,7 +328,7 @@
         vec3 offSetPos = position+vec3(offsetX, 0, offsetZ);
         clipCoords = mProj*mCam*vec4(offSetPos, 1.0);
         gl_Position = clipCoords;
-        texCoords = 6.0 * texture_coords;
+        texCoords = vec2(tilingX * texture_coords.x, tilingY*texture_coords.y);
         pos_to_cam = cameraPos - offSetPos;
         worldCoords = offSetPos;
     }
@@ -338,7 +340,7 @@
     uniform sampler2D refractionMap;
     uniform sampler2D reflectionMap;
     uniform sampler2D dudvMap;
-    uniform sampler2D density;
+    uniform sampler2D normalMap;
 
     uniform float moveFactor;
 
@@ -357,10 +359,10 @@
 
         //gl_FragColor = mix(texture2D(reflectionMap, reflectTexCoords) , texture2D(refractionMap, refractTexCoords), 0.5);
 
-        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.007;
-        vec2 distortion2 = texture2D(dudvMap, vec2(-texCoords.x + moveFactor, texCoords.y + moveFactor)).rg * 0.007;
-        vec2 distortion = distortion1 + distortion2;
-
+        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.003;
+        distortion1 = texCoords + vec2(distortion1.x, distortion1.y + moveFactor);
+        vec2 distortion = (texture2D(dudvMap, distortion1).rg * 2.0 - 1.0) * 0.003;
+        
         refractTexCoords = refractTexCoords + distortion;
         reflectTexCoords = reflectTexCoords + distortion;
 
@@ -372,7 +374,7 @@
         rf = pow(rf, 1.5);
 
         vec4 sceneColor = mix(reflectColor , refractColor, rf);
-
+        sceneColor = mix(sceneColor, vec4(0.0, 0.3, 0.5, 1.0), 0.25);
 
         /*vec3 dir = pos_to_cam;
         float distance = length(dir);
@@ -383,7 +385,7 @@
         vec3 fogColor = vec3(0.7,0.7,0.7);
         gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
         gl_FragColor.a = sceneColor.a;*/
-        gl_FragColor = sceneColor;
+        gl_FragColor = sceneColor;//texture2D(normalMap, distortion);
         // gl_FragColor = texture2D(density, tcoords);
 
     }
@@ -892,6 +894,7 @@
     terrainBuffers.push(getTerrain(250, 2, 0, 0));
     terrainBuffers.push(getTerrain(250, 2, 0, 249));
     terrainBuffers.push(getTerrain(250, 2, 249, 249));
+    terrainBuffers.push(getTerrain(250, 2, 249, 0));
 
     var waterVertices = setFloat32Buffer(gl, [0, 1, 0,
                                               0, 0,
@@ -906,18 +909,58 @@
                                               249, 1, -249,
                                               1, 1]);
 
-   /* var oceanVertices1 = setFloat32Buffer(gl, [-6000, 0.75, 6000,
+    var oceanPlanes = [];
+    oceanPlanes.push(setFloat32Buffer(gl, [-6000, 0.75, 6000,
                                               0, 0,
-                                              6000, 0.75, 6000,
+                                              0, 0.75, 6000,
                                               1, 0,
                                               -6000, 0.75, -6000,
                                               0, 1,
                                               -6000, 0.75, -6000,
+                                              0, 1,
+                                              0, 0.75, 6000,
+                                              1, 0,
+                                              0, 0.75, -6000,
+                                              1, 1]));
+    
+    oceanPlanes.push(setFloat32Buffer(gl, [249, 0.75, 6000,
+                                              0, 0,
+                                              6000, 0.75, 6000,
+                                              1, 0,
+                                              249, 0.75, -6000,
+                                              0, 1,
+                                              249, 0.75, -6000,
                                               0, 1,
                                               6000, 0.75, 6000,
                                               1, 0,
                                               6000, 0.75, -6000,
-                                              1, 1]);*/
+                                              1, 1]));
+    
+    oceanPlanes.push(setFloat32Buffer(gl, [0, 0.75, -249,
+                                              0, 0,
+                                              249, 0.75, -249,
+                                              1, 0,
+                                              0, 0.75, -6000,
+                                              0, 1,
+                                              0, 0.75, -6000,
+                                              0, 1,
+                                              249, 0.75, -249,
+                                              1, 0,
+                                              249, 0.75, -6000,
+                                              1, 1]));
+    
+    oceanPlanes.push(setFloat32Buffer(gl, [0, 0.75, 6000,
+                                              0, 0,
+                                              249, 0.75, 6000,
+                                              1, 0,
+                                              0, 0.75, 0,
+                                              0, 1,
+                                              0, 0.75, 0,
+                                              0, 1,
+                                              249, 0.75, 6000,
+                                              1, 0,
+                                              249, 0.75, 0,
+                                              1, 1]));
 
   /*  var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
                                               0, 0,
@@ -1364,7 +1407,7 @@
         ), mIT];
     }
 
-    var emitter = new Emitter(50,50,-50, 75, 75, WEATHER_MODE);
+    var emitter = new Emitter(50,50,-50, 500, 500, WEATHER_MODE);
 
     var weatherVertBuffer;
     var weatherTexBuffer;
@@ -1425,6 +1468,10 @@
             }, {
                 id: "waterDUDV",
                 src: "data/waterDUDV.png"
+            }, 
+            {
+                id: "waterNormals",
+                src: "data/waterNormals.png"
             }, {
             	id: "snow",
             	src: "data/snow.png"
@@ -1568,6 +1615,7 @@
     waterProgram["texture0"] = gl.getUniformLocation(waterProgram, "refractionMap");
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
     waterProgram["texture2"] = gl.getUniformLocation(waterProgram, "dudvMap");
+    waterProgram["texture3"] = gl.getUniformLocation(waterProgram, "normalMap");
     //waterProgram["texture3"] = gl.getUniformLocation(waterProgram, "density");
 
     programSNOW["texture0"] = gl.getUniformLocation(programSNOW, "snow");
@@ -1590,6 +1638,7 @@
     var sandAndGrassNormals = createTexture(gl, queue.getResult("sandAndGrassNormals", false));
 
     var waterDuDvMap = createTexture(gl, queue.getResult("waterDUDV", false));
+    var waterNormalsMap = createTexture(gl, queue.getResult("waterNormals", false));
     var snowTexture = createTexture(gl, queue.getResult("snow", false));
     var rainTexture = createTexture(gl, queue.getResult("rain", false));
 
@@ -1769,9 +1818,9 @@
             gl.useProgram(null);
         }
 
-        function drawWater(mCam, projMat, terrain, moveFactor) {
+        function drawWater(mCam, projMat, moveFactor, offX, offZ, waterBuffer, tiling) {
             gl.useProgram(waterProgram);
-
+            
             gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gl.canvas);
             gl.bindTexture(gl.TEXTURE_2D, null);
@@ -1780,21 +1829,32 @@
             setMat4Uniform(gl, waterProgram, "mCam", mCam);
             setFloatUniform(gl, waterProgram, "moveFactor", moveFactor);
             setVec3Uniform(gl, waterProgram, "cameraPos", cameraPos);
-            setFloatUniform(gl, waterProgram, "offsetX", terrain.offsetX);
-            setFloatUniform(gl, waterProgram, "offsetZ", terrain.offsetZ);
+            setFloatUniform(gl, waterProgram, "offsetX", offX);
+            setFloatUniform(gl, waterProgram, "offsetZ", offZ);
+            setFloatUniform(gl, waterProgram, "tilingX", tiling[0]);
+            setFloatUniform(gl, waterProgram, "tilingY", tiling[1]);
+            
+            if (waterProgram.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
+                gl.uniform1i(waterProgram.texture0, 0);
+            }
 
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
-            gl.uniform1i(waterProgram.texture0, 0);
-
-            gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, reflectionTexture);
-            gl.uniform1i(waterProgram.texture1, 1);
+            if (waterProgram.texture0 != null) {
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, reflectionTexture);
+                gl.uniform1i(waterProgram.texture1, 1);
+            }
 
             if (waterProgram.texture2 != null) {
                 gl.activeTexture(gl.TEXTURE2);
                 gl.bindTexture(gl.TEXTURE_2D, waterDuDvMap);
                 gl.uniform1i(waterProgram.texture2, 2);
+            }
+            if (waterProgram.texture3 != null) {
+                gl.activeTexture(gl.TEXTURE3);
+                gl.bindTexture(gl.TEXTURE_2D, waterNormalsMap);
+                gl.uniform1i(waterProgram.texture3, 3);
             }
             /*if (waterProgram.texture3 != null) {
                 // if (delay == 0) {
@@ -1808,7 +1868,7 @@
                 gl.uniform1i(waterProgram.texture3, 3);
             }*/
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, waterVertices);
+            gl.bindBuffer(gl.ARRAY_BUFFER, waterBuffer);
             var posLoc = gl.getAttribLocation(waterProgram, "position")
             gl.enableVertexAttribArray(posLoc);
             gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 5*4, 0);
@@ -1987,7 +2047,18 @@
             moveFactor = moveFactor + (0.0001 * frameDelta);
             moveFactor = moveFactor % 1.0;
             terrainBuffers.forEach(function (tb) {
-                drawWater(mCam, projMat, tb, moveFactor);
+                drawWater(mCam, projMat, moveFactor, tb.offsetX-1, tb.offsetZ-1, waterVertices, [6.0,6.0]);
+            });
+            
+            oceanPlanes.forEach(function (ov, ind) {
+                var tiling;
+                if (ind == 0 || ind == 1) {
+                    tiling = [150.0, 250.0];
+                }
+                else {
+                    tiling = [6.0, 125.0];
+                }
+                drawWater(mCam, projMat, moveFactor, 0, 0, ov, tiling);
             });
 
             drawSkybox(mCam, projMat);
