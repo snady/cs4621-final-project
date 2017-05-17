@@ -226,9 +226,11 @@
 
     uniform mat4 mProj;
     uniform mat4 mCam;
+    uniform vec3 cameraPos;
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
+    varying vec3 pos_to_cam;
 
     void main() {
         //gl_Position = vec4(position, 1.0);
@@ -236,6 +238,7 @@
         clipCoords = mProj*mCam*vec4(position, 1.0);
         gl_Position = clipCoords;
         texCoords = 6.0 * texture_coords;
+        pos_to_cam = cameraPos - position;
     }
 </script>
 
@@ -250,6 +253,7 @@
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
+    varying vec3 pos_to_cam;
 
     void main() {
         //gl_FragColor = texture2D(reflectionMap, texCoords);
@@ -271,7 +275,10 @@
         vec4 refractColor = texture2D(refractionMap, refractTexCoords);
         vec4 reflectColor = texture2D(reflectionMap, reflectTexCoords);
 
-        gl_FragColor = mix(reflectColor , refractColor, 0.5);
+        vec3 toCam = normalize(pos_to_cam);
+        float rf = dot(toCam, vec3(0.0,1.0,0.0));
+
+        gl_FragColor = mix(reflectColor , refractColor, rf);
 
         //gl_FragColor = mix(refractColor, vec4(0.529, 0.808, 0.98, 1.0), 0.35);
 
@@ -425,10 +432,10 @@
                 acceleration[2] = acc;
                 break;
             case "ArrowUp":
-                if(phi > 20.0/180*Math.PI){dphi = -0.05;}else{dphi = 0.0}
+                if(phi > 1.0/180*Math.PI){dphi = -0.05;}else{dphi = 0.0}
                 break;
             case "ArrowDown":
-                if(phi < Math.PI*160/180){dphi = 0.05;}else{dphi = 0.0}
+                if(phi < Math.PI*179/180){dphi = 0.05;}else{dphi = 0.0}
                 break;
             case "ArrowLeft":
                 dheading = 0.05;
@@ -1300,6 +1307,7 @@
             setMat4Uniform(gl, waterProgram, "mProj", projMat);
             setMat4Uniform(gl, waterProgram, "mCam", mCam);
             setFloatUniform(gl, waterProgram, "moveFactor", moveFactor);
+            setVec3Uniform(gl, waterProgram, "cameraPos", cameraPos);
 
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
@@ -1363,7 +1371,7 @@
             }
 
             {
-                gl.clearColor(0.53, 0.81, 0.98, 1.0);
+                gl.clearColor(0.25, 0.45, 0.75, 1.0);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
                 drawTerrain(mCam, projMat, reflectProgram);
                 gl.flush();
