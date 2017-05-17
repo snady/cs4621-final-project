@@ -1,5 +1,5 @@
 // Random terrain generation functions
-
+// Perlin noise generation adapted from code provided at http://flafla2.github.io/2014/08/09/perlinnoise.html
 function genP() {
     var p = [];
 
@@ -103,4 +103,3 @@ function perlin(x, y, p, nOctaves) {
 
     return total/maxVal;
 }
-
