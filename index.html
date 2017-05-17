@@ -277,6 +277,7 @@
 
         vec3 toCam = normalize(pos_to_cam);
         float rf = dot(toCam, vec3(0.0,1.0,0.0));
+        rf = pow(rf, 7.5);
 
         gl_FragColor = mix(reflectColor , refractColor, rf);
 
