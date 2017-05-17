@@ -1347,7 +1347,7 @@
                 gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, reflectionTexture, 0
             );
 
-            /*
+
             if  (reflectionDepth != null) {
                 gl.framebufferRenderbuffer(
                     // First argument is always gl.FRAMEBUFFER
@@ -1360,7 +1360,7 @@
                     // Lastly, the render buffer itself.
                     reflectionDepth
                 )
-            }*/
+            }
 
             {
                 gl.clearColor(0.53, 0.81, 0.98, 1.0);
@@ -1373,7 +1373,7 @@
                 gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
             );
 
-            /*
+
             if (reflectionDepth != null) {
                 gl.framebufferRenderbuffer(
                     gl.FRAMEBUFFER,
@@ -1381,7 +1381,7 @@
                     gl.RENDERBUFFER,
                     null
                 )
-            }*/
+            }
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
