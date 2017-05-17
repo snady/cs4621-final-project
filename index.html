@@ -52,6 +52,7 @@
     attribute vec3 position;
     attribute vec2 texture_coords;
     attribute float a_biome;
+    attribute vec3 normal;
 
     /*uniform vec3 cameraPos;
     uniform float heading;
@@ -63,6 +64,7 @@
 
     varying vec2 tcoords;
     varying float biome;
+    varying vec3 norm;
 
     varying vec3 worldCoords;
 
@@ -101,7 +103,7 @@
 
        tcoords = texture_coords;
        gl_Position = mProj*mCam*vec4(position, 1.0);
-
+       norm = normalize(normal);
        worldCoords = position;
     }
 
@@ -125,10 +127,12 @@
     uniform sampler2D sandAndGrass;
     varying vec2 tcoords;
     varying float biome;
+    varying vec3 norm;
 
     uniform vec3 cameraPos;
     varying vec3 worldCoords;
     uniform sampler2D density;
+    uniform vec3 lightDirection;
 
     // Main
     void main() {
@@ -156,9 +160,12 @@
         float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, tcoords).a;
         float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.7,0.7,0.7);
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
+        vec3 l = lightDirection*-1.0;
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
         gl_FragColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
+        //gl_FragColor = vec4((norm+ vec3(1,1,1))*0.5,1.0);
     }
 
 </script>
@@ -405,7 +412,6 @@
 </script>
 
 <script>
-
     $("#webglCanvas").click(function (event) {
         //console.log("clicked");
     });
@@ -715,6 +721,8 @@
     var mouseDownX = 0.0;
     var mouseDownY = 0.0;
 
+    var lightDir = [0.5,-0.866,0.0];
+
     //global weather mode constants
     var WEATHER_NONE = 0;
     var WEATHER_SNOW = 1;
@@ -793,6 +801,7 @@
     var indexBuffer = setUInt16Buffer(gl, terrain.indices);
     var textureBuffer = setFloat32Buffer(gl, terrain.texture_coords);
     var biomeBuffer = setFloat32Buffer(gl, terrain.biomes);
+    var normalBuffer = setFloat32Buffer(gl, terrain.normals);
 
     function getBiome(elevation, moisture) {
         var GRASS = 3.0;
@@ -879,6 +888,7 @@
         var verts = [];
         var indices = [];
         var tcoords = [];
+        var norms = [] 
         var biomes = [];
         var idx = 0;
 
@@ -901,11 +911,63 @@
                     bLeft, bRight, tLeft,
                     tLeft, bRight, tRight
                 );
+
+                var v1 = vec3.fromValues(verts[bRight*3]-verts[bLeft*3], verts[bRight*3+1]-verts[bLeft*3+1], verts[bRight*3+2]-verts[bLeft*3+2]);
+                var v2 = vec3.fromValues(verts[tLeft*3]-verts[bLeft*3], verts[tLeft*3+1]-verts[bLeft*3+1], verts[tLeft*3+2]-verts[bLeft*3+2]);
+                var norm1 = vec3.create();
+                vec3.cross(norm1, v1, v2);
+                vec3.normalize(norm1, norm1);
+
+                var v3 = vec3.fromValues(verts[tRight*3]-verts[bRight*3], verts[tRight*3+1]-verts[bRight*3+1], verts[tRight*3+2]-verts[bRight*3+2]);
+                var v4 = vec3.fromValues(verts[tLeft*3]-verts[bRight*3], verts[tLeft*3+1]-verts[bRight*3+1], verts[tLeft*3+2]-verts[bRight*3+2]);
+                var norm2 = vec3.create();
+                vec3.cross(norm2, v3, v4);
+                vec3.normalize(norm2, norm2);
+
+                if(norms[bLeft*3]==undefined){
+                    norms[bLeft*3] = norm1[0];
+                    norms[bLeft*3+1] = norm1[1];
+                    norms[bLeft*3+2] = norm1[2];
+                }else{
+                    norms[bLeft*3] += norm1[0];
+                    norms[bLeft*3+1] += norm1[1];
+                    norms[bLeft*3+2] += norm1[2];
+                }
+
+                if(norms[bRight*3]==undefined){
+                    norms[bRight*3] = norm1[0] + norm2[0];
+                    norms[bRight*3+1] = norm1[1] + norm2[1];
+                    norms[bRight*3+2] = norm1[2] + norm2[2];
+                }else{
+                    norms[bRight*3] += norm1[0] + norm2[0];
+                    norms[bRight*3+1] += norm1[1] + norm2[1];
+                    norms[bRight*3+2] += norm1[2] + norm2[2];
+                }
+
+                if(norms[tLeft*3]==undefined){
+                    norms[tLeft*3] = norm1[0] + norm2[0];
+                    norms[tLeft*3+1] = norm1[1] + norm2[1];
+                    norms[tLeft*3+2] = norm1[2] + norm2[2];
+                }else{
+                    norms[tLeft*3] += norm1[0] + norm2[0];
+                    norms[tLeft*3+1] += norm1[1] + norm2[1];
+                    norms[tLeft*3+2] += norm1[2] + norm2[2];
+                }
+
+                if(norms[tRight*3]==undefined){
+                    norms[tRight*3] = norm2[0];
+                    norms[tRight*3+1] = norm2[1];
+                    norms[tRight*3+2] = norm2[2];
+                }else{
+                    norms[tRight*3] += norm2[0];
+                    norms[tRight*3+1] += norm2[1];
+                    norms[tRight*3+2] += norm2[2];
+                }
             }
         }
 
         cameraPos = [ndiv/6, ndiv/6, 0];
-        return {vertices: verts, indices: indices, texture_coords: tcoords, biomes: biomes};
+        return {vertices: verts, indices: indices, normals: norms, texture_coords: tcoords, biomes: biomes};
     }
 
     function generateFogDensity(gl, ndiv) {
@@ -1223,6 +1285,7 @@
             setMat4Uniform(gl, program, "mCam", mCam);
             setFloatUniform(gl, program, "time", 200 / 10);
             setVec3Uniform(gl, program, "cameraPos", cameraPos);
+            setVec3Uniform(gl, program, "lightDirection", lightDir);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
@@ -1270,6 +1333,12 @@
             var positionLocation = gl.getAttribLocation(program, "position")
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 3*4, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+            var normalLocation = gl.getAttribLocation(program, "normal")
+            gl.enableVertexAttribArray(normalLocation);
+            gl.vertexAttribPointer(normalLocation,3, gl.FLOAT, false, 3*4, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
