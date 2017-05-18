@@ -1755,12 +1755,6 @@
                 gl.uniform1i(program.texture5, 5);
             }
             if (program.texture6 != null) {
-                // if (delay == 0) {
-                //     densityIdx = (densityIdx+1) % 20;
-                //     delay = FOG_DELAY;
-                // } else {
-                //     delay--;
-                // }
                 gl.activeTexture(gl.TEXTURE6);
                 gl.bindTexture(gl.TEXTURE_2D, fogDensity);
                 gl.uniform1i(program.texture6, 6);
