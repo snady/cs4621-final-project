@@ -198,9 +198,10 @@
             fogColor = vec3(0.4,0.4,0.4);
         }
         vec3 l = lightDirection*-1.0;
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
-        if (worldCoords.y < 6.0) {
-            gl_FragColor.a = sceneColor.a / max(1.0,(-worldCoords.y/4.0));
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(n)),0.0);
+
+        if (worldCoords.y < 12.0) {
+            gl_FragColor.a = sceneColor.a / max(1.0,(-worldCoords.y/10.0));
         } else {
             gl_FragColor.a = sceneColor.a;
         }
@@ -324,7 +325,7 @@
         //gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
 
         vec3 h = normalize(l + dir);
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(n)),0.0);
 
        //vec3 diff = sceneColor.rgb * lightColor * max(dot(l, n),0.0);
        // vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
@@ -1141,6 +1142,7 @@
     }
 
     function generateTerrain(ndiv, ntex) {
+        // falloff and redistribution equations from http://www.redblobgames.com/maps/terrain-from-noise/
         var w = ndiv;
         var h = ndiv;
         var tstep = ntex/(ndiv/15.0);
@@ -1173,12 +1175,12 @@
 
         var a = 0;
         var b = .4;
-        var c = 8.0;
+        var c = 10.0;
         var d;
         var eleva;
 		for (var i = 0; i < elevData.length; i++) {
-            d = 2.0 * Math.max(Math.abs(((i%w)-(w/2.0))/(w)), Math.abs((Math.floor(i/w)-(h/2.0))/(h)));
-            // d = 2.0 * Math.sqrt(Math.pow(((Math.floor(i/w))-(h/2))/(h/2), 2.0) + Math.pow(((i%w)-(w/2))/(w/2), 2.0));
+            d = 2.0 * Math.max(Math.abs(((i%w)-(w/2.0))/w), Math.abs((Math.floor(i/w)-(h/2.0))/h/1.1));
+            // d = 2.0 * Math.sqrt(Math.pow(((Math.floor(i/w))-(h/2))/h, 2.0) + Math.pow(((i%w)-(w/2))/w, 2.0));
             eleva = elevData[i] + a - b*Math.pow(d, c);
 			elevation.push(maxElev * (eleva - minVal) / (maxVal - minVal));
 		}
