@@ -36,7 +36,7 @@ function Particle(x, y, z, weatherType){
 
 function Emitter(x, y, z, width, height, weatherType){
 	
-	this.totalParticles = 1000;
+	this.totalParticles = 5000;
 	this.particlePool = [];
 	this.particleSize = 0.5; //arbitrary for now
 
