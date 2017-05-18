@@ -81,9 +81,9 @@
        vec3 offSetPos = position+vec3(offsetX, 0, offsetZ);
        gl_Position = mProj*mCam*vec4(offSetPos, 1.0);
 
-       norm = normalize(normalMatrix * normalize(normal));
-       tan1 = normalize(normalMatrix * normalize(tangent1));
-       tan2 = normalize(normalMatrix * normalize(tangent2));
+       norm = normalize(normal);//normalize(normalMatrix * normalize(normal));
+       tan1 = normalize(tangent1);//normalize(normalMatrix * normalize(tangent1));
+       tan2 = normalize(tangent2);//normalize(normalMatrix * normalize(tangent2));
 
        worldCoords = offSetPos;
     }
@@ -175,29 +175,29 @@
 
         vec3 n = normalize(v1 * (normalMap.x - 0.5) * bumpiness + v2 * (normalMap.y - 0.5) * bumpiness + normalize(norm) * (normalMap.z - 0.5));
 
-        vec3 dir = normalize(cameraPos - worldCoords);
+        vec3 dir = cameraPos - worldCoords;
         float distance = length(dir);
-        float b1 = 0.02;
-        float b2 = 0.03;
-        float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, tcoords).a;
-        float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
-        vec3 fogColor = vec3(0.7,0.7,0.7);
+        float b1 = 0.003;
+        float b2 = 0.006;
+        float inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(10.0,worldCoords.y))*texture2D(density, tcoords).a;
+        float extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
+        vec3 fogColor = vec3(0.6,0.6,0.8);
         vec3 l = lightDirection*-1.0;
-        //gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
+        if (worldCoords.y < 6.0) {
+            gl_FragColor.a = sceneColor.a / max(1.0,(-worldCoords.y/4.0));
+        } else {
+            gl_FragColor.a = sceneColor.a;
+        }
 
-        vec3 h = normalize(l + dir);
-        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+        //vec3 diff = sceneColor.rgb * lightColor * max(dot(l, n),0.0);
+        //vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
+        //finalColor.rgb = diff;// + spec;
 
-        vec3 diff = sceneColor.rgb * max(dot(l, n),0.0);
-        vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
-        finalColor.rgb = diff;// + spec;
-
-        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
-        finalColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
         //gl_FragColor = vec4((norm+ vec3(1,1,1))*0.5,1.0);
 
-        gl_FragColor = finalColor;
+        // gl_FragColor = finalColor;
     }
 
 </script>
@@ -239,6 +239,7 @@
     varying vec3 worldCoords;
     uniform sampler2D density;
     uniform vec3 lightDirection;
+    uniform vec3 lightColor;
 
     // Main
     void main() {
@@ -276,34 +277,34 @@
         } else {
             discard;
         }
-        vec4 finalColor;
+       vec4 finalColor;
 
         vec3 v1 = normalize(tan1);
         vec3 v2 = normalize(tan2);
 
         vec3 n = normalize(v1 * (normalMap.x - 0.5) * bumpiness + v2 * (normalMap.y - 0.5) * bumpiness + normalize(norm) * (normalMap.z - 0.5));
 
-        vec3 dir = normalize(cameraPos - worldCoords);
+        vec3 dir = cameraPos - worldCoords;
         float distance = length(dir);
-        float b1 = 0.02;
-        float b2 = 0.03;
-        float inScattering = exp(-pow(distance*2.0*b1, 2.0) / worldCoords.y)*texture2D(density, tcoords).a;
-        float extinction = exp(-pow(distance*2.0*b2, 2.0) / worldCoords.y)/texture2D(density, tcoords).a;
-        vec3 fogColor = vec3(0.7,0.7,0.7);
+        float b1 = 0.003;
+        float b2 = 0.006;
+        float inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(10.0,worldCoords.y))*texture2D(density, tcoords).a;
+        float extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
+        vec3 fogColor = vec3(0.6,0.6,0.8);
         vec3 l = lightDirection*-1.0;
+        //gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
+
         vec3 h = normalize(l + dir);
-        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb)* max(dot(l, normalize(norm)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
 
-        vec3 diff = sceneColor.rgb * max(dot(l, n),0.0);
-        vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
-        finalColor.rgb = diff;// + spec;
+       //vec3 diff = sceneColor.rgb * lightColor * max(dot(l, n),0.0);
+       // vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
+        //finalColor.rgb = diff;// + spec;
 
-        //gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
-        finalColor.a = sceneColor.a;
         // gl_FragColor = texture2D(density, tcoords);
         //gl_FragColor = vec4((norm+ vec3(1,1,1))*0.5,1.0);
-
-        gl_FragColor = finalColor;
+        gl_FragColor.a = sceneColor.a;
+        // gl_FragColor = finalColor;
     }
 </script>
 
@@ -331,9 +332,11 @@
         vec3 offSetPos = position+vec3(offsetX, 0, offsetZ);
         clipCoords = mProj*mCam*vec4(offSetPos, 1.0);
         gl_Position = clipCoords;
+
         texCoords = vec2(tilingX * texture_coords.x, tilingY*texture_coords.y);
         pos_to_cam = cameraPos - offSetPos;
         worldCoords = offSetPos;
+
     }
 </script>
 
@@ -345,15 +348,23 @@
     uniform sampler2D dudvMap;
     uniform sampler2D normalMap;
 
+    uniform mat4 mCam;
+
     uniform float moveFactor;
+
+    uniform vec3 cameraPos;
+    uniform vec3 lightDirection;
+    uniform vec3 lightColor;
+    uniform float day;
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
     varying vec3 pos_to_cam;
     varying vec3 worldCoords;
+    uniform sampler2D density;
 
     void main() {
-        //gl_FragColor = texture2D(reflectionMap, texCoords);
+        float bumpiness = 1.0;
 
         vec2 ndc = ((clipCoords.xy/clipCoords.w)/2.0) + 0.5;
 
@@ -362,22 +373,44 @@
 
         //gl_FragColor = mix(texture2D(reflectionMap, reflectTexCoords) , texture2D(refractionMap, refractTexCoords), 0.5);
 
-        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.003;
-        distortion1 = texCoords + vec2(distortion1.x, distortion1.y + moveFactor);
-        vec2 distortion = (texture2D(dudvMap, distortion1).rg * 2.0 - 1.0) * 0.003;
-        
-        refractTexCoords = refractTexCoords + distortion;
-        reflectTexCoords = reflectTexCoords + distortion;
+        vec2 distortion1 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.007;
+        distortion1 = texCoords + vec2(-distortion1.x + moveFactor, distortion1.y + moveFactor);
+        vec2 distortionDUDV = (texture2D(dudvMap, distortion1).rg * 2.0 - 1.0) * 0.007;
+
+        vec2 distortion2 = texture2D(dudvMap, vec2(texCoords.x + moveFactor, texCoords.y)).rg * 0.004;
+        distortion2 = texCoords + vec2(-distortion2.x + moveFactor, distortion2.y + moveFactor);
+        vec2 distortionNormal = (texture2D(dudvMap, distortion2).rg * 2.0 - 1.0) * 0.004;
+
+        refractTexCoords = refractTexCoords + distortionDUDV;
+        reflectTexCoords = reflectTexCoords + distortionDUDV;
 
         vec4 refractColor = texture2D(refractionMap, refractTexCoords);
         vec4 reflectColor = texture2D(reflectionMap, reflectTexCoords);
 
         vec3 toCam = normalize(pos_to_cam);
         float rf = dot(toCam, vec3(0.0,1.0,0.0));
-        rf = pow(rf, 1.5);
+        rf = pow(rf, 1.5) * day;
+
+        // if (worldCoords.y < 0.0) {
+        //     rf = rf / (-worldCoords.y * 10.0);
+        // }
+
 
         vec4 sceneColor = mix(reflectColor , refractColor, rf);
         sceneColor = mix(sceneColor, vec4(0.0, 0.3, 0.5, 1.0), 0.25);
+
+        vec3 norm = vec3(0.0, 1.0, 0.0);//normalize((mCam * (0.0, 1.0, 0.0, 1.0)).xyz);
+        vec3 v1 = vec3(1.0, 0.0, 0.0);//normalize((mCam * (1.0, 0.0, 0.0, 1.0)).xyz);
+        vec3 v2 = vec3(0.0, 0.0, -1.0);//normalize((mCam * (0.0, 0.0, -1.0, 1.0)).xyz);
+
+        vec4 normalMapSample = texture2D(normalMap, distortionNormal);
+        vec3 normal = normalize(v1 * (normalMapSample.x - 0.5) * bumpiness + v2 * (normalMapSample.y - 0.5) * bumpiness + normalize(norm) * (normalMapSample.z - 0.5));
+
+        vec3 lightReflection = reflect(normalize(lightDirection), normal);
+        float spec = max(dot(lightReflection, toCam), 0.0);
+        spec = pow(spec, 20.0);
+        vec3 specLighting = lightColor * spec * 0.6;
+
 
         /*vec3 dir = pos_to_cam;
         float distance = length(dir);
@@ -388,7 +421,7 @@
         vec3 fogColor = vec3(0.7,0.7,0.7);
         gl_FragColor.rgb = (1.0-inScattering)*fogColor + extinction*(sceneColor.rgb);
         gl_FragColor.a = sceneColor.a;*/
-        gl_FragColor = sceneColor;//texture2D(normalMap, distortion);
+        gl_FragColor = sceneColor + vec4(specLighting,0.0);//texture2D(normalMap, distortion);
         // gl_FragColor = texture2D(density, tcoords);
 
     }
@@ -934,17 +967,17 @@
     terrainBuffers.push(getTerrain(250, 2, 249, 249));
     terrainBuffers.push(getTerrain(250, 2, 249, 0));
 
-    var waterVertices = setFloat32Buffer(gl, [0, 1, 0,
+    var waterVertices = setFloat32Buffer(gl, [0, 1, 249,
                                               0, 0,
-                                              249, 1, 0,
+                                              499, 1, 249,
                                               1, 0,
-                                              0, 1, -249,
+                                              0, 1, -499,
                                               0, 1,
-                                              0, 1, -249,
+                                              0, 1, -499,
                                               0, 1,
-                                              249, 1, 0,
+                                              499, 1, 249,
                                               1, 0,
-                                              249, 1, -249,
+                                              499, 1, -499,
                                               1, 1]);
 
     var oceanPlanes = [];
@@ -960,44 +993,44 @@
                                               1, 0,
                                               0, 0.75, -6000,
                                               1, 1]));
-    
-    oceanPlanes.push(setFloat32Buffer(gl, [249, 0.75, 6000,
+
+    oceanPlanes.push(setFloat32Buffer(gl, [499, 0.75, 6000,
                                               0, 0,
                                               6000, 0.75, 6000,
                                               1, 0,
-                                              249, 0.75, -6000,
+                                              499, 0.75, -6000,
                                               0, 1,
-                                              249, 0.75, -6000,
+                                              499, 0.75, -6000,
                                               0, 1,
                                               6000, 0.75, 6000,
                                               1, 0,
                                               6000, 0.75, -6000,
                                               1, 1]));
-    
-    oceanPlanes.push(setFloat32Buffer(gl, [0, 0.75, -249,
+
+    oceanPlanes.push(setFloat32Buffer(gl, [0, 0.75, -254,
                                               0, 0,
-                                              249, 0.75, -249,
+                                              499, 0.75, -254,
                                               1, 0,
                                               0, 0.75, -6000,
                                               0, 1,
                                               0, 0.75, -6000,
                                               0, 1,
-                                              249, 0.75, -249,
+                                              499, 0.75, -254,
                                               1, 0,
-                                              249, 0.75, -6000,
+                                              499, 0.75, -6000,
                                               1, 1]));
-    
+
     oceanPlanes.push(setFloat32Buffer(gl, [0, 0.75, 6000,
                                               0, 0,
-                                              249, 0.75, 6000,
+                                              499, 0.75, 6000,
                                               1, 0,
-                                              0, 0.75, 0,
+                                              0, 0.75, 249,
                                               0, 1,
-                                              0, 0.75, 0,
+                                              0, 0.75, 249,
                                               0, 1,
-                                              249, 0.75, 6000,
+                                              499, 0.75, 6000,
                                               1, 0,
-                                              249, 0.75, 0,
+                                              499, 0.75, 249,
                                               1, 1]));
 
   /*  var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
@@ -1074,13 +1107,13 @@
             return WATER;
         }
         var b = elevation * moisture;
-        if (b > 10) {
+        if (b > 14) {
             return MT_SNOW;
-        } else if (b > 3) {
+        } else if (b > 4) {
             return STONE;
-        } else if (b > 1.8) {
+        } else if (b > 2.6) {
             return DRY_GRASS;
-        } else if (b > 1.6) {
+        } else if (b > 1.8) {
             return GRASS;
         } else if (b > 1.05) {
             return SAND_AND_GRASS;
@@ -1105,10 +1138,6 @@
         var center = [0.5,0.5];
 
         var elev;
-        var a = .05;
-        var b = 1;
-        var c = 2;
-        var d;
         var redistrib = 8;
 		for (var j = 0; j < h; j++) {
 			for (var i = 0; i < w; i++) {
@@ -1116,6 +1145,7 @@
 
                 elev = perlin(5 * i / w, 5 * j / h, p, 20) - dist;
                 elev = Math.pow(Math.sin(1.5*elev), redistrib);
+                // d = 2.0 * Math.max(Math.abs((i-(w/2))/w), Math.abs((j-(h/2))/h));
                 // if (elev > .5) {
                 //     elev = Math.pow(elev, -redistrib) / 2.0;
                 // }
@@ -1129,8 +1159,16 @@
 		var elevation = [];
         var maxElev = 25;
 
+        var a = 0;
+        var b = .4;
+        var c = 8.0;
+        var d;
+        var eleva;
 		for (var i = 0; i < elevData.length; i++) {
-			elevation.push(maxElev * (elevData[i] - minVal) / (maxVal - minVal));
+            d = 2.0 * Math.max(Math.abs(((i%w)-(w/2.0))/(w)), Math.abs((Math.floor(i/w)-(h/2.0))/(h)));
+            // d = 2.0 * Math.sqrt(Math.pow(((Math.floor(i/w))-(h/2))/(h/2), 2.0) + Math.pow(((i%w)-(w/2))/(w/2), 2.0));
+            eleva = elevData[i] + a - b*Math.pow(d, c);
+			elevation.push(maxElev * (eleva - minVal) / (maxVal - minVal));
 		}
 
         var p2 = genP();
@@ -1166,26 +1204,28 @@
             var y;
             var e = elevation[j*w +i];
             for (var i=0; i<w; i++) {
-                if (i <= 1) {
-                    y = i;
-                }
-                else if (i >= w-2) {
-                    y = w-1 - i;
-                }
-                else if (j <= 1) {
-                    y = j;
-                }
-                else if (j >= h-2) {
-                    y = h-1 - j;
-                }
-                else {
-                    y = elevation[j*w +i];
-                }
+                verts.push(i, elevation[j*w +i], -j);
 
-                if (e <= 1.0 && y <= 1) {
-                    y = 0.01;
-                }
-                verts.push(i/1.0, y, -j/1.0);
+                // if (i <= 1) {
+                //     y = i;
+                // }
+                // else if (i >= w-2) {
+                //     y = w-1 - i;
+                // }
+                // else if (j <= 1) {
+                //     y = j;
+                // }
+                // else if (j >= h-2) {
+                //     y = h-1 - j;
+                // }
+                // else {
+                //     y = elevation[j*w +i];
+                // }
+                //
+                // if (e <= 1.0 && y <= 1) {
+                //     y = 0.01;
+                // }
+                // verts.push(i/1.0, y, -j/1.0);
                 tcoords.push(i*tstep, -j*tstep);
                 biomes.push(getBiome(elevation[j*w + i], moisture[j*w + i]));
             }
@@ -1512,7 +1552,7 @@
             }, {
                 id: "waterDUDV",
                 src: "data/waterDUDV.png"
-            }, 
+            },
             {
                 id: "waterNormals",
                 src: "data/waterNormals.png"
@@ -1680,6 +1720,7 @@
     waterProgram["texture1"] = gl.getUniformLocation(waterProgram, "reflectionMap");
     waterProgram["texture2"] = gl.getUniformLocation(waterProgram, "dudvMap");
     waterProgram["texture3"] = gl.getUniformLocation(waterProgram, "normalMap");
+    waterProgram["texture4"] = gl.getUniformLocation(waterProgram, "density");
     //waterProgram["texture3"] = gl.getUniformLocation(waterProgram, "density");
 
     programSNOW["texture0"] = gl.getUniformLocation(programSNOW, "snow");
@@ -1757,7 +1798,6 @@
             //projMat2[10] = plane[2] - projMat2[11];
            //projMat2[14] = plane[3] - projMat2[15] - 1.0;
             //console.log(mCam);
-
 
             setMat4Uniform(gl, program, "mProj", projMat2);
             setMat4Uniform(gl, program, "mCam", mCam);
@@ -1885,7 +1925,7 @@
 
         function drawWater(mCam, projMat, moveFactor, offX, offZ, waterBuffer, tiling) {
             gl.useProgram(waterProgram);
-            
+
             gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gl.canvas);
             gl.bindTexture(gl.TEXTURE_2D, null);
@@ -1898,7 +1938,10 @@
             setFloatUniform(gl, waterProgram, "offsetZ", offZ);
             setFloatUniform(gl, waterProgram, "tilingX", tiling[0]);
             setFloatUniform(gl, waterProgram, "tilingY", tiling[1]);
-            
+            setVec3Uniform(gl, waterProgram, "lightDirection", lightDir);
+            setVec3Uniform(gl, waterProgram, "lightColor", lightIntensity);
+            setFloatUniform(gl, waterProgram, "day", 1.0-timeMode);
+
             if (waterProgram.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, refractionTexture);
@@ -1933,7 +1976,14 @@
                 gl.uniform1i(waterProgram.texture3, 3);
             }*/
 
+            if (waterProgram.texture4 != null) {
+                gl.activeTexture(gl.TEXTURE4);
+                gl.bindTexture(gl.TEXTURE_2D, fogDensity);
+                gl.uniform1i(waterProgram.texture4, 4);
+            }
+
             gl.bindBuffer(gl.ARRAY_BUFFER, waterBuffer);
+
             var posLoc = gl.getAttribLocation(waterProgram, "position")
             gl.enableVertexAttribArray(posLoc);
             gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 5*4, 0);
@@ -2111,17 +2161,18 @@
 
             moveFactor = moveFactor + (0.0001 * frameDelta);
             moveFactor = moveFactor % 1.0;
-            terrainBuffers.forEach(function (tb) {
-                drawWater(mCam, projMat, moveFactor, tb.offsetX-1, tb.offsetZ-1, waterVertices, [6.0,6.0]);
-            });
-            
+
+            //terrainBuffers.forEach(function (tb) {
+                drawWater(mCam, projMat, moveFactor, 0, 0, waterVertices, [30.0,30.0]);
+            //});
+
             oceanPlanes.forEach(function (ov, ind) {
                 var tiling;
                 if (ind == 0 || ind == 1) {
-                    tiling = [150.0, 250.0];
+                    tiling = [300.0, 400.0];
                 }
                 else {
-                    tiling = [6.0, 125.0];
+                    tiling = [30.0, 200.0];
                 }
                 drawWater(mCam, projMat, moveFactor, 0, 0, ov, tiling);
             });
