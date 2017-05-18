@@ -519,12 +519,6 @@
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0);
 
-        mat4 rot2 = mat4(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0);
-
 	  	//cylindrical true billboarding (following lighthouse3d's tutorial)
 	  	//http://www.lighthouse3d.com/opengl/billboarding/billboardingtut.pdf
 
@@ -1565,7 +1559,7 @@
         ), mIT];
     }
 
-    var emitter = new Emitter(50,50,-50, 500, 500, WEATHER_MODE);
+    var emitter = new Emitter(0,50,-250, 500, 500, WEATHER_MODE);
 
     var weatherVertBuffer;
     var weatherTexBuffer;
