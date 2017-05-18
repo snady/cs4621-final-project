@@ -183,7 +183,7 @@
         float extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
         vec3 fogColor = vec3(0.6,0.6,0.8);
         vec3 l = lightDirection*-1.0;
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(n)),0.0);
         if (worldCoords.y < 6.0) {
             gl_FragColor.a = sceneColor.a / max(1.0,(-worldCoords.y/4.0));
         } else {
@@ -295,7 +295,7 @@
         //gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
 
         vec3 h = normalize(l + dir);
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(n)),0.0);
 
        //vec3 diff = sceneColor.rgb * lightColor * max(dot(l, n),0.0);
        // vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
