@@ -27,6 +27,11 @@
     <div align="center">
         <canvas tabindex="1" id="webglCanvas" style="position: absolute;left: 0; top: 0;border: none; background-color: black; width: 100vw;height: 100vh;" ></canvas>
     </div>
+
+    <div align="center">
+        <p style="padding-left: 5px; padding-right: 5px; left: 50%; transform: translate(-50%, -50%); position: absolute; top: 15px; color: LightSlateGrey; white-space: pre; background-color: rgba(0,0,0,0.5);">day / night: <b style="color: Goldenrod;">m</b>    snow: <b style="color: Goldenrod;">n</b>     rain: <b style="color: Goldenrod;">b</b></p> 
+    </div>
+
     <br>
 </div>
 
@@ -39,26 +44,6 @@
 <script src="js/particle.js"></script>
 <script src="js/util.js"></script>
 <script src="scenes.js"></script>
-<script src='js/dat.gui.min.js'></script>
-
-
-<!--dat gui -->
-<script>
-var gui = new dat.GUI({
-    height : 5 * 32 - 1
-});
-
-var weatherController = gui.add(text, 'weather', { none: 0, snow: 1, rain: 2});
-var timeController = gui.add(text, 'time', { day: 0, night: 1});
-
-weatherController.onChange(function(value){
-	WEATHER_MODE = value;
-});
-
-timeController.onChange(function(value){
-	timeMode = value;
-});
-</script>
 
 <!-- Shaders -->
 
@@ -625,6 +610,14 @@ timeController.onChange(function(value){
                 break;
             case "ArrowRight":
                 dheading = -0.05;
+                break;
+            case "b":
+            	WEATHER_MODE = WEATHER_RAIN;
+	        	emitter.updateMode(WEATHER_RAIN);
+	            break;
+            case "n":
+            	WEATHER_MODE = WEATHER_SNOW;
+            	emitter.updateMode(WEATHER_SNOW);
                 break;
             case "m":
                 if(timeMode==0){
