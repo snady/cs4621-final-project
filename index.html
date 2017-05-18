@@ -1641,9 +1641,9 @@
     var refractionFBO = gl.createFramebuffer();
     var refractionDepth = createRenderBuffer(gl, gl.canvas.width, gl.canvas.height);
 
-    var reflectionTexture = createFloatTexture(gl, gl.canvas.width, gl.canvas.height);
+    var reflectionTexture = createFloatTexture(gl, 1200, 800);
     var reflectionFBO = gl.createFramebuffer();
-    var reflectionDepth = createRenderBuffer(gl, gl.canvas.width, gl.canvas.height);
+    var reflectionDepth = createRenderBuffer(gl, 1200, 800);
 
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
     var waterProgram = glslProgram("waterVertex", "waterFragment");
@@ -1940,6 +1940,7 @@
 
             var mCam = getViewMatrix();
 
+            gl.viewport(0, 0, 1200, 800);
             gl.bindFramebuffer(gl.FRAMEBUFFER, reflectionFBO);
             // Step 2: Attach the texture to the FBO.
             gl.framebufferTexture2D(
@@ -1986,6 +1987,8 @@
             }
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
             cameraPos[1] = orig_y;
             phi = orig_phi;
