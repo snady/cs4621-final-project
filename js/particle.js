@@ -3,16 +3,17 @@ var WEATHER_NONE = 0;
 var WEATHER_SNOW = 1;
 var WEATHER_RAIN = 2;
 
+//particle object
 function Particle(x, y, z, weatherType){
 	this.startPos = {"x": x, "y": y, "z": z};
 	this.position = {"x": x, "y": y, "z": z};
 
 	if(weatherType == WEATHER_SNOW){
-		this.velocity = {"x": (Math.random()*0.1)-0.1, "y": (Math.random()*0.4)+0.1, "z": (Math.random()*0.1)-0.1};
+		this.velocity = {"x": (Math.random()*0.1)-0.1, "y": Math.random()+0.4, "z": (Math.random()*0.1)-0.1};
 	}else if(weatherType == WEATHER_RAIN){
 		var signx = Math.random() < 0.5 ? -1 : 1;
 		var signz = Math.random() < 0.5 ? -1 : 1;
-		this.velocity = {"x": signx*Math.random()*0.1, "y": Math.random()+0.6, "z": signz*Math.random()*0.1};
+		this.velocity = {"x": signx*Math.random()*0.1, "y": Math.random()+1.6, "z": signz*Math.random()*0.1};
 		// this.velocity = {"x": 0, "y": Math.random()+0.6, "z": 0};
 	}
 	this.update = function(dt, endHeight) {
@@ -34,6 +35,7 @@ function Particle(x, y, z, weatherType){
 }
 
 
+//particle system initializer, doesn't actually emit particles but rather scatters them across the map according to start pos and width/height
 function Emitter(x, y, z, width, height, weatherType){
 	
 	this.totalParticles = 5000;
@@ -57,7 +59,7 @@ function Emitter(x, y, z, width, height, weatherType){
 	}
 
 	for( var i = 0; i < this.totalParticles; i++ ){
-		var p = new Particle(Math.random()*width,y,-Math.random()*height, this.weather);
+		var p = new Particle(x+Math.random()*width,y,z+Math.random()*height, this.weather);
 		this.particlePool.push(p);
 		addSquare(p.position.x, p.position.y, p.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords, this.weather);
 	}
@@ -111,8 +113,8 @@ function Emitter(x, y, z, width, height, weatherType){
 	}
 
 	this.updateMode = function(newMode){
-		console.log(newMode == WEATHER_SNOW);
-		console.log(newMode == WEATHER_RAIN);
+		//console.log(newMode == WEATHER_SNOW);
+		//console.log(newMode == WEATHER_RAIN);
 		this.weather = newMode;
 		if(newMode == WEATHER_SNOW){
 			this.particleSize = 0.5;
@@ -125,6 +127,7 @@ function Emitter(x, y, z, width, height, weatherType){
 	}
 }
 
+//adds vertices of the particle, these are billboards so just quads
 function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer, cbuffer, weatherType){
 	var c = vbuffer.length/3;
 	vbuffer.push(llx, lly, llz, llx+len, lly, llz, llx+len, lly+len, llz, llx, lly+len, llz);
