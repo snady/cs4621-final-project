@@ -111,8 +111,8 @@ function Emitter(x, y, z, width, height, weatherType){
 	}
 
 	this.updateMode = function(newMode){
-		console.log(newMode == WEATHER_SNOW);
-		console.log(newMode == WEATHER_RAIN);
+		//console.log(newMode == WEATHER_SNOW);
+		//console.log(newMode == WEATHER_RAIN);
 		this.weather = newMode;
 		if(newMode == WEATHER_SNOW){
 			this.particleSize = 0.5;

@@ -189,11 +189,15 @@
         vec3 snow = vec3(abs)+vec3(0.0,(1.0-abs)*0.05,(1.0-abs)*0.2);
         snow = (snow+0.3)*(snow+0.3);
 
+        vec3 light = lightColor;
         vec3 color = sceneColor.rgb;
         if(weatherMode == 1){
             color = snow;
+            if(lightColor.x == 1.0){
+                light = vec3(0.9,0.9,0.8);
+            }
         }
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(color)*lightColor * max(dot(l, normalize(n)),0.0);
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*light + extinction*(color)*light * max(dot(l, normalize(n)),0.0);
 
         if (worldCoords.y < 6.0) {
             gl_FragColor.a = sceneColor.a / max(1.0,(-worldCoords.y/4.0));
@@ -251,6 +255,8 @@
     uniform sampler2D density;
     uniform vec3 lightDirection;
     uniform vec3 lightColor;
+    uniform int weatherMode;
+    uniform int timeMode;
 
     // Main
     void main() {
@@ -306,7 +312,21 @@
         //gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)* lightColor * max(dot(l, normalize(norm)),0.0);
 
         vec3 h = normalize(l + dir);
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(n)),0.0);
+
+        float abs = (sceneColor.x+sceneColor.y+sceneColor.z)/3.0;
+        vec3 snow = vec3(abs)+vec3(0.0,(1.0-abs)*0.05,(1.0-abs)*0.2);
+        snow = (snow+0.3)*(snow+0.3);
+
+        vec3 light = lightColor;
+        vec3 color = sceneColor.rgb;
+        if(weatherMode == 1){
+            color = snow;
+            if(lightColor.x == 1.0){
+                light = vec3(0.9,0.9,0.8);
+            }
+        }
+
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*light + extinction*(color)*light * max(dot(l, normalize(n)),0.0);
 
        //vec3 diff = sceneColor.rgb * lightColor * max(dot(l, n),0.0);
        // vec3 spec = vec3(1.0) * pow(max(dot(n, h), 0.0), 1.0 / roughness);
@@ -367,6 +387,8 @@
     uniform vec3 lightDirection;
     uniform vec3 lightColor;
     uniform float day;
+    uniform int weatherMode;
+    uniform int timeMode;
 
     varying vec4 clipCoords;
     varying vec2 texCoords;
@@ -410,6 +432,13 @@
 
         vec4 sceneColor = mix(reflectColor , refractColor, rf);
         sceneColor = mix(sceneColor, vec4(0.0, 0.3, 0.5, 1.0), 0.25);
+        if(weatherMode==1 && timeMode == 0){
+            float abs = (sceneColor.x+sceneColor.y+sceneColor.z)/3.0;
+            sceneColor.x = sceneColor.x*0.5+abs*0.5;
+            sceneColor.y = sceneColor.y*0.5+abs*0.5;
+            sceneColor.z = sceneColor.z*0.5+abs*0.5;
+            sceneColor += vec4(0.1,0.1,0.1,0.0);
+        }
 
         vec3 norm = vec3(0.0, 1.0, 0.0);//normalize((mCam * (0.0, 1.0, 0.0, 1.0)).xyz);
         vec3 v1 = vec3(1.0, 0.0, 0.0);//normalize((mCam * (1.0, 0.0, 0.0, 1.0)).xyz);
@@ -575,10 +604,22 @@
 
     varying vec3 vCoords;
     uniform samplerCube texture0;
+    uniform int weatherMode;
+    uniform int timeMode;
 
     void main() {
         vec3 coords = vec3(vCoords[0], -1.0*vCoords[1], vCoords[2]);
-        gl_FragColor = textureCube(texture0, coords);
+        vec4 col = textureCube(texture0, coords);
+        if(weatherMode == 1 && timeMode ==0){
+            float abs = (col.x+col.y+col.z)/3.0;
+            col.x = col.x*0.5+abs*0.5;
+            col.y = col.y*0.5+abs*0.5;
+            col.z = col.z*0.5+abs*0.5;
+            col += vec4(0.1,0.1,0.1,0.0);
+        }else if(weatherMode == 1 && timeMode ==0){
+            col - vec4(0.2,0.2,0.2,0.0);
+        }
+        gl_FragColor = col;
         //gl_FragColor = vec4(vCoords/50.0,1.0);
     }
 </script>
@@ -1762,6 +1803,7 @@
             setFloatUniform(gl, program, "offsetX", terrain.offsetX);
             setFloatUniform(gl, program, "offsetZ", terrain.offsetZ);
             setIntUniform(gl, program, "weatherMode", WEATHER_MODE);
+            setIntUniform(gl, program, "timeMode", timeMode);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
@@ -1896,6 +1938,8 @@
             setVec3Uniform(gl, waterProgram, "lightDirection", lightDir);
             setVec3Uniform(gl, waterProgram, "lightColor", lightIntensity);
             setFloatUniform(gl, waterProgram, "day", 1.0-timeMode);
+            setIntUniform(gl, waterProgram, "weatherMode", WEATHER_MODE);
+            setIntUniform(gl, waterProgram, "timeMode", timeMode);
 
             if (waterProgram.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
@@ -2009,6 +2053,8 @@
             setMat4Uniform(gl, skyboxProgram, "mProj", projMat);
             setMat4Uniform(gl, skyboxProgram, "mCam", mCam);
             setVec3Uniform(gl, skyboxProgram, "cameraPos", cameraPos);
+            setIntUniform(gl, skyboxProgram, "weatherMode", WEATHER_MODE);
+            setIntUniform(gl, skyboxProgram, "timeMode", timeMode);
 
             if (skyboxProgram.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
