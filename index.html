@@ -44,14 +44,20 @@
 
 <!--dat gui -->
 <script>
-
 var gui = new dat.GUI({
     height : 5 * 32 - 1
 });
 
-gui.add(text, 'weather', { none: 0, snow: 1, rain: 2});
-gui.add(text, 'time', { day: 0, night: 1});
+var weatherController = gui.add(text, 'weather', { none: 0, snow: 1, rain: 2});
+var timeController = gui.add(text, 'time', { day: 0, night: 1});
 
+weatherController.onChange(function(value){
+	WEATHER_MODE = value;
+});
+
+timeController.onChange(function(value){
+	timeMode = value;
+});
 </script>
 
 <!-- Shaders -->
