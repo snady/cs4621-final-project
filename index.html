@@ -128,6 +128,7 @@
     uniform sampler2D density;
     uniform vec3 lightDirection;
     uniform vec3 lightColor;
+    uniform int timeMode;
 
     // Main
     void main() {
@@ -177,11 +178,25 @@
 
         vec3 dir = cameraPos - worldCoords;
         float distance = length(dir);
-        float b1 = 0.003;
-        float b2 = 0.006;
-        float inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(10.0,worldCoords.y))*texture2D(density, tcoords).a;
-        float extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
-        vec3 fogColor = vec3(0.6,0.6,0.8);
+
+        float b1;
+        float b2;
+        float inScattering;
+        float extinction;
+        vec3 fogColor;
+        if (timeMode == 0) {
+            b1 = 0.003;
+            b2 = 0.006;
+            inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(10.0,worldCoords.y))*texture2D(density, tcoords).a;
+            extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
+            fogColor = vec3(0.6,0.6,0.8);
+        } else {
+            b1 = 0.02;
+            b2 = 0.03;
+            inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(0.1,worldCoords.y))*texture2D(density, tcoords).a;
+            extinction = exp(-pow(distance*1.8*b2, 2.0) / max(0.1,worldCoords.y))/texture2D(density, tcoords).a;
+            fogColor = vec3(0.4,0.4,0.4);
+        }
         vec3 l = lightDirection*-1.0;
         gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
         if (worldCoords.y < 6.0) {
@@ -240,6 +255,7 @@
     uniform sampler2D density;
     uniform vec3 lightDirection;
     uniform vec3 lightColor;
+    uniform int timeMode;
 
     // Main
     void main() {
@@ -286,11 +302,24 @@
 
         vec3 dir = cameraPos - worldCoords;
         float distance = length(dir);
-        float b1 = 0.003;
-        float b2 = 0.006;
-        float inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(10.0,worldCoords.y))*texture2D(density, tcoords).a;
-        float extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
-        vec3 fogColor = vec3(0.6,0.6,0.8);
+        float b1;
+        float b2;
+        float inScattering;
+        float extinction;
+        vec3 fogColor;
+        if (timeMode == 0) {
+            b1 = 0.003;
+            b2 = 0.006;
+            inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(10.0,worldCoords.y))*texture2D(density, tcoords).a;
+            extinction = exp(-pow(distance*1.8*b2, 2.0) / max(10.0,worldCoords.y))/texture2D(density, tcoords).a;
+            fogColor = vec3(0.6,0.6,0.8);
+        } else {
+            b1 = 0.02;
+            b2 = 0.03;
+            inScattering = exp(-pow(distance*1.8*b1, 2.0) / max(0.1,worldCoords.y))*texture2D(density, tcoords).a;
+            extinction = exp(-pow(distance*1.8*b2, 2.0) / max(0.1,worldCoords.y))/texture2D(density, tcoords).a;
+            fogColor = vec3(0.4,0.4,0.4);
+        }
         vec3 l = lightDirection*-1.0;
         vec3 h = normalize(l + dir);
         gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(norm)),0.0);
@@ -1758,6 +1787,7 @@
             setMat3Uniform(gl, program, "normalMatrix", normalMatrix);
             setFloatUniform(gl, program, "offsetX", terrain.offsetX);
             setFloatUniform(gl, program, "offsetZ", terrain.offsetZ);
+            setIntUniform(gl, program, "timeMode", timeMode);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
