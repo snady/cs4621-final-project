@@ -898,11 +898,28 @@
         //if(velocity[1]*acceleration[1]>0.0){acceleration[1] = 0.0; velocity[1] = 0.0;}
         //if(velocity[2]*acceleration[2]>0.0){acceleration[2] = 0.0; velocity[2] = 0.0;}
 
-        if(velocity[0]!=0.0)vec3.add(cam, cam, vec3.scale(w,w,velocity[0]));
-        if(velocity[1]!=0.0)vec3.add(cam, cam, vec3.scale(u,u,velocity[1]));
-        if(velocity[2]!=0.0)vec3.add(cam, cam, vec3.scale(v,v,velocity[2]));
+        var lowBound = 0.0;
+        var highBound = 500.0;
+
+/*
+        if(velocity[0]!=0.0 && ((velocity[0]>0.0 && cameraPos[0]<highBound) || (velocity[0]<0.0 && cameraPos[0]>lowBound)))vec3.add(cam, cam, vec3.scale(w,w,velocity[0]));
+        if(velocity[1]!=0.0 && ((velocity[1]>0.0 && cameraPos[1]<highBound) || (velocity[1]<0.0 && cameraPos[1]>lowbound)))vec3.add(cam, cam, vec3.scale(u,u,velocity[1]));
+        if(velocity[2]!=0.0 && ((velocity[2]>0.0 && cameraPos[2]<100.0) || (velocity[2]<0.0 && cameraPos[2]>0.0)))vec3.add(cam, cam, vec3.scale(v,v,velocity[2]));
+*/
+        var temp = vec3.clone(cameraPos);
+        var tempw = vec3.clone(w);
+        var tempu = vec3.clone(u);
+        vec3.add(temp, temp, vec3.scale(tempw,tempw,velocity[0]));
+        vec3.add(temp, temp, vec3.scale(tempu,tempu,velocity[1]));
+        var xINBOUND = temp[0]<highBound && temp[0]>lowBound;
+        var zINBOUND = temp[2]<highBound-250.0 && temp[2]>lowBound-250.0;
+        var yINBOUND = temp[1]<100.0 && temp[1]>2.0;
+
+        if(velocity[0]!=0.0 && xINBOUND && zINBOUND && yINBOUND)vec3.add(cam, cam, vec3.scale(w,w,velocity[0]));
+        if(velocity[1]!=0.0 && xINBOUND && zINBOUND && yINBOUND)vec3.add(cam, cam, vec3.scale(u,u,velocity[1]));
+        if(velocity[2]!=0.0 && ((velocity[2]>0.0 && cameraPos[1]<100.0) || (velocity[2]<0.0 && cameraPos[1]>2.0)))vec3.add(cam, cam, vec3.fromValues(0.0,velocity[2],0.0));
         if(performance.now()*100.0%5.0==0.0){
-            //console.log(w);
+            console.log(cameraPos);
             //console.log(heading/Math.PI*180 + ", " + phi/Math.PI*180);
         }
         cameraPos = cam;
