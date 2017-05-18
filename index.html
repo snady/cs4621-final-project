@@ -856,6 +856,8 @@
         return texture;
     }
 
+    /* Resizes the canvas appropriately
+     */
     function resize(canvas) {
       var displayWidth  = canvas.clientWidth;
       var displayHeight = canvas.clientHeight;
@@ -867,6 +869,8 @@
       }
     }
 
+    /* Initializes the refraction texture
+     */
     function createRefractTexture(gl) {
         var text = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, text);
@@ -878,6 +882,8 @@
         return text;
     }
 
+    /* Creates the fbo for the reflection texture
+     */
     function createFloatTexture(gl, width, height) {
         var text = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, text);
@@ -913,6 +919,8 @@
         return text;
     }
 
+    /* Creates the render buffer to store depths
+     */
     function createRenderBuffer(gl, width, height) {
         var depthBuffer = gl.createRenderbuffer();
         gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
@@ -953,6 +961,7 @@
 
     var WEATHER_MODE = WEATHER_RAIN;
 
+    /* Updates the camera position */
     function updateCam(){
         var w = vec3.create();
         var u = vec3.create();
@@ -972,18 +981,10 @@
         velocity[1]+=acceleration[1] - acc*2*velocity[1];
         velocity[2]+=acceleration[2] - acc*2*velocity[2];
 
-        //if(velocity[0]*velocity[0]<0.1){velocity[0] = 0.0;}
-        //if(velocity[1]*acceleration[1]>0.0){acceleration[1] = 0.0; velocity[1] = 0.0;}
-        //if(velocity[2]*acceleration[2]>0.0){acceleration[2] = 0.0; velocity[2] = 0.0;}
 
         var lowBound = 0.0;
         var highBound = 500.0;
 
-/*
-        if(velocity[0]!=0.0 && ((velocity[0]>0.0 && cameraPos[0]<highBound) || (velocity[0]<0.0 && cameraPos[0]>lowBound)))vec3.add(cam, cam, vec3.scale(w,w,velocity[0]));
-        if(velocity[1]!=0.0 && ((velocity[1]>0.0 && cameraPos[1]<highBound) || (velocity[1]<0.0 && cameraPos[1]>lowbound)))vec3.add(cam, cam, vec3.scale(u,u,velocity[1]));
-        if(velocity[2]!=0.0 && ((velocity[2]>0.0 && cameraPos[2]<100.0) || (velocity[2]<0.0 && cameraPos[2]>0.0)))vec3.add(cam, cam, vec3.scale(v,v,velocity[2]));
-*/
         var temp = vec3.clone(cameraPos);
         var tempw = vec3.clone(w);
         var tempu = vec3.clone(u);
@@ -1006,12 +1007,14 @@
         heading += dheading;
     }
 
+    // Terrain tiles
     var terrainBuffers = [];
     terrainBuffers.push(getTerrain(250, 2, 0, 0));
     terrainBuffers.push(getTerrain(250, 2, 0, 249));
     terrainBuffers.push(getTerrain(250, 2, 249, 249));
     terrainBuffers.push(getTerrain(250, 2, 249, 0));
 
+    // Vertex buffers to render the water and oceans.
     var waterVertices = setFloat32Buffer(gl, [0, 1, 249,
                                               0, 0,
                                               499, 1, 249,
@@ -1091,24 +1094,12 @@
                                               499, 0.75, 249,
                                               1, 1]));
 
-  /*  var waterVertices = setFloat32Buffer(gl, [-1.0, -1.0, 0,
-                                              0, 0,
-                                              1.0, -1.0, 0,
-                                              1, 0,
-                                              -1.0, 1.0, 0,
-                                              0, 1,
-                                              -1.0, 1.0, 0,
-                                              0, 1,
-                                              1.0, -1.0, 0,
-                                              1, 0,
-                                              1.0, 1.0, 0,
-                                              1, 1]);*/
-
     var cplane = vec4.fromValues(0, -1.0, 0.0, 1.0)
 
     var width = canvas.width();
     var height = canvas.height();
 
+    /* Returns a terrain tile based on the given parameters */
     function getTerrain(ndiv, ntex, offsetX, offsetZ) {
         var terrain = generateTerrain(ndiv, ntex);
         terrain.vertexBuffer = setFloat32Buffer(gl, terrain.vertices);
@@ -1123,6 +1114,7 @@
         return terrain
     }
 
+    // Skybox data
     var boxRad = 2500.0;
     var vertexDataSkybox = [
     -boxRad,-boxRad,boxRad,
@@ -1152,7 +1144,7 @@
     var vertexBufferSkybox = setFloat32Buffer(gl, vertexDataSkybox);
     var indexBufferSkybox = setUInt16Buffer(gl, indexDataSkybox);
 
-    /** assigns a biome to each vertex based on the elevation and moisture noise maps */
+    /* Generates a biome based on the given parameters */
     function getBiome(elevation, moisture) {
         var GRASS = 3.0;
         var DRY_GRASS = 4.0;
@@ -1182,13 +1174,14 @@
         }
     }
 
+    /* Distance between 2 points */
     function distance(p1, p2) {
         var xDiff = Math.pow(p2[0] - p1[0], 2.0);
         var yDiff = Math.pow(p2[1] - p1[1], 2.0);
         return Math.sqrt(xDiff + yDiff);
     }
 
-    /** creates a mesh based on the generated perlin noise map */
+    /* Generates a terrain tile */
     function generateTerrain(ndiv, ntex) {
         // falloff and redistribution equations from http://www.redblobgames.com/maps/terrain-from-noise/
         var w = ndiv;
@@ -1411,6 +1404,7 @@
                 tangent1s: tangent1s, tangent2s: tangent2s};
     }
 
+    /* Generates the density level for nightime fog */
     function generateFogDensity(gl, ndiv) {
         var w = ndiv;
         var h = ndiv;
@@ -1458,6 +1452,7 @@
         return densityTex;
     }
 
+    /* Initializes the cubemap for the skyboxes */
     function initCubeMap(gl,queue){
         var CubeMap = gl.createTexture();
         gl.activeTexture(gl.TEXTURE2);
@@ -1483,6 +1478,7 @@
         return CubeMap;
     }
 
+    /* Generates a viewMatrix */
     function getViewMatrix() {
         var e = cameraPos;
         var w = vec3.fromValues(-1*Math.cos(heading), -1*Math.cos(phi), Math.sin(heading))
@@ -1515,6 +1511,7 @@
         return mCam;
     }
 
+    /* Generates 3x3 and 4x4 normal matrices based on mCam */
     function getNormalMatrices(mCam) {
         var mI = mat4.create();
         var mIT = mat4.create();
@@ -1528,6 +1525,7 @@
         ), mIT];
     }
 
+    // Initializes the emitter and relevant buffers
     var emitter = new Emitter(0,50,-250, 500, 500, WEATHER_MODE);
 
     var weatherVertBuffer;
@@ -1535,6 +1533,7 @@
     var weatherIndexBuffer;
     var weatherCenterBuffer;
 
+    // Updates the particle buffers
     function updateParticles(emitter){
     	emitter.update(1);
     	weatherVertBuffer = setFloat32BufferD(gl, emitter.vertices);
@@ -1543,12 +1542,10 @@
     	weatherCenterBuffer = setFloat32BufferD(gl, emitter.center_coords);
     }
 
+    //Starts running the program
     function startWebGL() {
-        // Step 1: Create a LoadQueue object.
         var queue = new createjs.LoadQueue();
-        // Step 2: Register the callback function.
         queue.on("complete", function() { runWebGL(queue) }, this);
-        // Step 3: List the files you want to load, with their correponding ID.
         queue.loadManifest([
             {
                 id: "grass",
@@ -1643,6 +1640,7 @@
     }
 
     function runWebGL(queue) {
+    //Initialize glsl
     var gl = initWebGL(canvas);
     globalGL = gl;
     globalQ = queue;
@@ -1652,14 +1650,16 @@
     resize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
+    // Creating FBOs for water
     var refractionTexture = createRefractTexture(gl);//createFloatTexture(gl, gl.canvas.width/4.0, gl.canvas.height/4.0);
     var refractionFBO = gl.createFramebuffer();
     var refractionDepth = createRenderBuffer(gl, gl.canvas.width, gl.canvas.height);
 
-    var reflectionTexture = createFloatTexture(gl, gl.canvas.width, gl.canvas.height);
+    var reflectionTexture = createFloatTexture(gl, 1200, 800);
     var reflectionFBO = gl.createFramebuffer();
-    var reflectionDepth = createRenderBuffer(gl, gl.canvas.width, gl.canvas.height);
+    var reflectionDepth = createRenderBuffer(gl, 1200, 800);
 
+    // Initializing all of the shaders and textures
     var programTRN = glslProgram("vertexShaderTRN", "fragmentTRN");
     var waterProgram = glslProgram("waterVertex", "waterFragment");
     var programSNOW = glslProgram("vertexSNOW", "fragmentSNOW");
@@ -1742,6 +1742,7 @@
     //var start=new Date().getSeconds();//new Date().getTime() / 1000;
     //var frames = 0;
 
+    // Keeps track of time
     var lastFrame = new Date();
     var frameDelta = 0;
 
@@ -1751,6 +1752,8 @@
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
 
+        /* Renders the above-water terrain
+         */
         function drawTerrain(mCam, projMat, program, terrain) {
             gl.useProgram(program);
 
@@ -1877,6 +1880,8 @@
             gl.useProgram(null);
         }
 
+        /* Renders the water plane given by the parameters
+         */
         function drawWater(mCam, projMat, moveFactor, offX, offZ, waterBuffer, tiling) {
             gl.useProgram(waterProgram);
 
@@ -1942,6 +1947,8 @@
             gl.useProgram(null);
         }
 
+        /* Draws the reflection texture to its fbo
+         */
         function drawReflectionTexture(projMat) {
             var orig_y = cameraPos[1]
             var vert_d = cameraPos[1] - 0.75;
@@ -1953,6 +1960,7 @@
 
             var mCam = getViewMatrix();
 
+            gl.viewport(0, 0, 1200, 800);
             gl.bindFramebuffer(gl.FRAMEBUFFER, reflectionFBO);
             // Step 2: Attach the texture to the FBO.
             gl.framebufferTexture2D(
@@ -2000,10 +2008,14 @@
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
             cameraPos[1] = orig_y;
             phi = orig_phi;
         }
 
+        /* Renders a skybox to the scene
+         */
         function drawSkybox(mCam, projMat) {
             gl.useProgram(skyboxProgram);
 
@@ -2049,10 +2061,12 @@
 
             drawReflectionTexture(projMat);
 
+            //Drawing each of the terrain tiles
             terrainBuffers.forEach(function (tb) {
                 drawTerrain(mCam, projMat, programTRN, tb);
             });
 
+            //Updating time related data
             var currFrame = new Date();
             frameDelta = currFrame - lastFrame;
             lastFrame = currFrame;
@@ -2060,6 +2074,7 @@
             moveFactor = moveFactor + (0.0001 * frameDelta);
             moveFactor = moveFactor % 1.0;
 
+            //Drawing the water planes
             drawWater(mCam, projMat, moveFactor, 0, 0, waterVertices, [30.0,30.0]);
 
             oceanPlanes.forEach(function (ov, ind) {
@@ -2075,7 +2090,7 @@
 
             drawSkybox(mCam, projMat);
 
-            //DRAWING SNOW, TESTING
+            //DRAWING SNOWc
             gl.useProgram(programSNOW);
 
             if (programSNOW.texture0 != null) {
