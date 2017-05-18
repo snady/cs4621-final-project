@@ -128,6 +128,7 @@
     uniform sampler2D density;
     uniform vec3 lightDirection;
     uniform vec3 lightColor;
+    uniform int weatherMode;
 
     // Main
     void main() {
@@ -188,7 +189,11 @@
         vec3 snow = vec3(abs)+vec3(0.0,(1.0-abs)*0.05,(1.0-abs)*0.2);
         snow = (snow+0.3)*(snow+0.3);
 
-        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(sceneColor.rgb)*lightColor * max(dot(l, normalize(n)),0.0);
+        vec3 color = sceneColor.rgb;
+        if(weatherMode == 1){
+            color = snow;
+        }
+        gl_FragColor.rgb = (1.0-inScattering)*fogColor*lightColor + extinction*(color)*lightColor * max(dot(l, normalize(n)),0.0);
 
         if (worldCoords.y < 6.0) {
             gl_FragColor.a = sceneColor.a / max(1.0,(-worldCoords.y/4.0));
@@ -1756,6 +1761,7 @@
             setMat3Uniform(gl, program, "normalMatrix", normalMatrix);
             setFloatUniform(gl, program, "offsetX", terrain.offsetX);
             setFloatUniform(gl, program, "offsetZ", terrain.offsetZ);
+            setIntUniform(gl, program, "weatherMode", WEATHER_MODE);
 
             if (program.texture0 != null) {
                 gl.activeTexture(gl.TEXTURE0);
