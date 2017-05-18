@@ -21,7 +21,18 @@ function Particle(x, y, z, weatherType){
 		this.position.z += this.velocity.z * dt;
 	}
 
+	this.updateVelocity = function(newMode){
+		if(newMode == WEATHER_SNOW){
+			this.velocity = {"x": (Math.random()*0.1)-0.1, "y": (Math.random()*0.4)+0.1, "z": (Math.random()*0.1)-0.1};
+		}else if(newMode == WEATHER_RAIN){
+			var signx = Math.random() < 0.5 ? -1 : 1;
+			var signz = Math.random() < 0.5 ? -1 : 1;
+			this.velocity = {"x": signx*Math.random()*0.1, "y": Math.random()+0.6, "z": signz*Math.random()*0.1};
+		}
+	}
+
 }
+
 
 function Emitter(x, y, z, width, height, weatherType){
 	
@@ -37,16 +48,18 @@ function Emitter(x, y, z, width, height, weatherType){
 	this.texture_coords = [];
 	this.center_coords = [];
 
-	if(weatherType == WEATHER_SNOW){
+	this.weather = weatherType;
+
+	if(this.weather == WEATHER_SNOW){
 		this.particleSize = 0.5;
-	}else if(weatherType == WEATHER_RAIN){
+	}else if(this.weather == WEATHER_RAIN){
 		this.particleSize = 3;
 	}
 
 	for( var i = 0; i < this.totalParticles; i++ ){
-		var p = new Particle(Math.random()*width,y,-Math.random()*height, weatherType);
+		var p = new Particle(Math.random()*width,y,-Math.random()*height, this.weather);
 		this.particlePool.push(p);
-		addSquare(p.position.x, p.position.y, p.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords, weatherType);
+		addSquare(p.position.x, p.position.y, p.position.z, this.particleSize, this.vertices, this.indices, this.texture_coords, this.center_coords, this.weather);
 	}
 
 	this.update = function(dt) {
@@ -94,6 +107,20 @@ function Emitter(x, y, z, width, height, weatherType){
 			this.center_coords[offset+8] = particle.position.z;
 			this.center_coords[offset+11] = particle.position.z;
 
+		}
+	}
+
+	this.updateMode = function(newMode){
+		console.log(newMode == WEATHER_SNOW);
+		console.log(newMode == WEATHER_RAIN);
+		this.weather = newMode;
+		if(newMode == WEATHER_SNOW){
+			this.particleSize = 0.5;
+		}else if(newMode == WEATHER_RAIN){
+			this.particleSize = 3;
+		}
+		for(var i = 0; i < this.totalParticles; i++ ){
+			this.particlePool[i].updateVelocity(newMode);
 		}
 	}
 }
