@@ -39,9 +39,20 @@
 <script src="js/particle.js"></script>
 <script src="js/util.js"></script>
 <script src="scenes.js"></script>
+<script src='js/dat.gui.min.js'></script>
 
 
+<!--dat gui -->
+<script>
 
+var gui = new dat.GUI({
+    height : 5 * 32 - 1
+});
+
+gui.add(text, 'weather', { none: 0, snow: 1, rain: 2});
+gui.add(text, 'time', { day: 0, night: 1});
+
+</script>
 
 <!-- Shaders -->
 
