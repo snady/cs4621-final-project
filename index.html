@@ -39,10 +39,6 @@
 <script src="js/terrain.js"></script>
 <script src="js/particle.js"></script>
 <script src="js/util.js"></script>
-<script src="scenes.js"></script>
-
-
-
 
 <!-- Shaders -->
 
@@ -363,6 +359,7 @@
     varying vec3 worldCoords;
     uniform sampler2D density;
 
+    // Based on a tutorial from https://www.youtube.com/user/ThinMatrix
     void main() {
         float bumpiness = 1.0;
 
@@ -952,7 +949,7 @@
         if(velocity[1]!=0.0 && xINBOUND && zINBOUND && yINBOUND)vec3.add(cam, cam, vec3.scale(u,u,velocity[1]));
         if(velocity[2]!=0.0 && ((velocity[2]>0.0 && cameraPos[1]<100.0) || (velocity[2]<0.0 && cameraPos[1]>2.0)))vec3.add(cam, cam, vec3.fromValues(0.0,velocity[2],0.0));
         if(performance.now()*100.0%5.0==0.0){
-            console.log(cameraPos);
+            //console.log(cameraPos);
             //console.log(heading/Math.PI*180 + ", " + phi/Math.PI*180);
         }
         cameraPos = cam;
@@ -966,6 +963,19 @@
     terrainBuffers.push(getTerrain(250, 2, 0, 249));
     terrainBuffers.push(getTerrain(250, 2, 249, 249));
     terrainBuffers.push(getTerrain(250, 2, 249, 0));
+
+    var waterVertices = setFloat32Buffer(gl, [0, 1, 249,
+                                              0, 0,
+                                              499, 1, 249,
+                                              1, 0,
+                                              0, 1, -499,
+                                              0, 1,
+                                              0, 1, -499,
+                                              0, 1,
+                                              499, 1, 249,
+                                              1, 0,
+                                              499, 1, -499,
+                                              1, 1]);
 
     var waterVertices = setFloat32Buffer(gl, [0, 1, 249,
                                               0, 0,
@@ -1565,63 +1575,6 @@
             }, {
             	id: "rain",
             	src: "data/rain.png"
-            // }, {
-            //     id: "fog1",
-            //     src: "data/fog1.png"
-            // }, {
-            //     id: "fog2",
-            //     src: "data/fog2.png"
-            // }, {
-            //     id: "fog3",
-            //     src: "data/fog3.png"
-            // }, {
-            //     id: "fog4",
-            //     src: "data/fog4.png"
-            // }, {
-            //     id: "fog5",
-            //     src: "data/fog5.png"
-            // }, {
-            //     id: "fog6",
-            //     src: "data/fog6.png"
-            // }, {
-            //     id: "fog7",
-            //     src: "data/fog7.png"
-            // }, {
-            //     id: "fog8",
-            //     src: "data/fog8.png"
-            // }, {
-            //     id: "fog9",
-            //     src: "data/fog9.png"
-            // }, {
-            //     id: "fog10",
-            //     src: "data/fog10.png"
-            // }, {
-            //     id: "fog11",
-            //     src: "data/fog11.png"
-            // }, {
-            //     id: "fog12",
-            //     src: "data/fog12.png"
-            // }, {
-            //     id: "fog13",
-            //     src: "data/fog13.png"
-            // }, {
-            //     id: "fog14",
-            //     src: "data/fog14.png"
-            // }, {
-            //     id: "fog15",
-            //     src: "data/fog15.png"
-            // }, {
-            //     id: "fog16",
-            //     src: "data/fog16.png"
-            // }, {
-            //     id: "fog17",
-            //     src: "data/fog17.png"
-            // }, {
-            //     id: "fog18",
-            //     src: "data/fog18.png"
-            // }, {
-            //     id: "fog19",
-            //     src: "data/fog19.png"
             }, {
                 id: "posx",
                 src: "data/cloudtop_posx.png"
@@ -1777,29 +1730,7 @@
             var nMatrices = getNormalMatrices(mCam)
             var normalMatrix = nMatrices[0];
 
-            var cplane = vec4.fromValues(0, -1.0, 0.0, 1.0);
-            //var plane = vec4.fromValues(cplane[0], cplane[1], cplane[2], cplane[3]);
-            //vec4.transformMat4(plane, plane, nMatrices[1]);
-            var plane = vec4.fromValues(0., 0.532172, -0.846637,100.0);
-            /*var projMatInv = mat4.create();
-            mat4.invert(projMatInv, projMat);
-
-            var q = vec4.create();
-            var a = vec4.fromValues(Math.sign(plane[0]), Math.sign(plane[1]), 1.0, 1.0);
-            vec4.transformMat4(q, a, projMatInv);
-
-            var c = vec4.create();
-            var factor = 2.0 / vec4.dot(plane, q);
-            vec4.multiply(c, plane, factor);*/
-
-            var projMat2 = mat4.clone(projMat);
-            //projMat2[2] = plane[0] - projMat2[3];
-            //projMat2[6] = plane[1] - projMat2[7];
-            //projMat2[10] = plane[2] - projMat2[11];
-           //projMat2[14] = plane[3] - projMat2[15] - 1.0;
-            //console.log(mCam);
-
-            setMat4Uniform(gl, program, "mProj", projMat2);
+            setMat4Uniform(gl, program, "mProj", projMat);
             setMat4Uniform(gl, program, "mCam", mCam);
             setVec3Uniform(gl, program, "cameraPos", cameraPos);
             setVec3Uniform(gl, program, "lightDirection", lightDir);
@@ -1964,18 +1895,6 @@
                 gl.bindTexture(gl.TEXTURE_2D, waterNormalsMap);
                 gl.uniform1i(waterProgram.texture3, 3);
             }
-            /*if (waterProgram.texture3 != null) {
-                // if (delay == 0) {
-                //     densityIdx = (densityIdx+1) % 20;
-                //     delay = FOG_DELAY;
-                // } else {
-                //     delay--;
-                // }
-                gl.activeTexture(gl.TEXTURE3);
-                gl.bindTexture(gl.TEXTURE_2D, fogDensity);
-                gl.uniform1i(waterProgram.texture3, 3);
-            }*/
-
             if (waterProgram.texture4 != null) {
                 gl.activeTexture(gl.TEXTURE4);
                 gl.bindTexture(gl.TEXTURE_2D, fogDensity);
@@ -2060,52 +1979,6 @@
             phi = orig_phi;
         }
 
-        function drawRefractionTexture(mCam, projMat) {
-            //gl.viewport(0, 0, gl.canvas.width/4.0, gl.canvas.height/4.0);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, refractionFBO);
-            // Step 2: Attach the texture to the FBO.
-            gl.framebufferTexture2D(
-                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, refractionTexture, 0
-            );
-
-            if (refractionDepth != null) {
-                gl.framebufferRenderbuffer(
-                    // First argument is always gl.FRAMEBUFFER
-                    gl.FRAMEBUFFER,
-                    // Second argument indicates the attachment slot.
-                    // Since we want the buffer to serve as the depth buffer, we use the gl.DEPTH_ATTACHMENT slot.
-                    gl.DEPTH_ATTACHMENT,
-                    // We are giving a render buffer instead of a texture, so we use gl.RENDERBUFFER.
-                    gl.RENDERBUFFER,
-                    // Lastly, the render buffer itself.
-                    refractionDepth
-                );
-            }
-
-            {
-                gl.clearColor(0.7, 0.7, 0.7, 1.0);
-                gl.clear(gl.COLOR_BUFFER_BIT);
-                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                drawTerrain(mCam, projMat, programTRN, terrainBuffer);
-                gl.flush();
-            }
-
-            gl.framebufferTexture2D(
-                gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0
-            );
-            if (refractionDepth != null) {
-                gl.framebufferRenderbuffer(
-                    gl.FRAMEBUFFER,
-                    gl.DEPTH_ATTACHMENT,
-                    gl.RENDERBUFFER,
-                    null
-                )
-            }
-
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            //gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        }
-
         function drawSkybox(mCam, projMat) {
             gl.useProgram(skyboxProgram);
 
@@ -2142,14 +2015,12 @@
         	gl.clearColor(0.7, 0.7, 0.7, 1.0);
         	gl.clear(gl.COLOR_BUFFER_BIT);
 
-            //update cameraPos
             updateCam();
             var mCam = getViewMatrix();
 
             updateParticles(emitter);
 
             drawReflectionTexture(projMat);
-           // drawRefractionTexture(mCam, projMat);
 
             terrainBuffers.forEach(function (tb) {
                 drawTerrain(mCam, projMat, programTRN, tb);
@@ -2162,9 +2033,7 @@
             moveFactor = moveFactor + (0.0001 * frameDelta);
             moveFactor = moveFactor % 1.0;
 
-            //terrainBuffers.forEach(function (tb) {
-                drawWater(mCam, projMat, moveFactor, 0, 0, waterVertices, [30.0,30.0]);
-            //});
+            drawWater(mCam, projMat, moveFactor, 0, 0, waterVertices, [30.0,30.0]);
 
             oceanPlanes.forEach(function (ov, ind) {
                 var tiling;
@@ -2224,18 +2093,6 @@
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
             gl.useProgram(null);
-
-            /*
-            var currTime = (new Date().getSeconds());
-            if ((currTime - start) != 0) {
-                start = currTime;
-                console.log(frames);
-                frames = 0;
-            }
-            else {
-                frames = frames + 1;
-            }*/
-
 
         	window.requestAnimationFrame(updateWebGL);
         }
