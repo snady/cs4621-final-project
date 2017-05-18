@@ -3,6 +3,7 @@ var WEATHER_NONE = 0;
 var WEATHER_SNOW = 1;
 var WEATHER_RAIN = 2;
 
+//particle object
 function Particle(x, y, z, weatherType){
 	this.startPos = {"x": x, "y": y, "z": z};
 	this.position = {"x": x, "y": y, "z": z};
@@ -34,6 +35,7 @@ function Particle(x, y, z, weatherType){
 }
 
 
+//particle system initializer, doesn't actually emit particles but rather scatters them across the map according to start pos and width/height
 function Emitter(x, y, z, width, height, weatherType){
 	
 	this.totalParticles = 5000;
@@ -125,6 +127,7 @@ function Emitter(x, y, z, width, height, weatherType){
 	}
 }
 
+//adds vertices of the particle, these are billboards so just quads
 function addSquare(llx, lly, llz, len, vbuffer, ibuffer, tbuffer, cbuffer, weatherType){
 	var c = vbuffer.length/3;
 	vbuffer.push(llx, lly, llz, llx+len, lly, llz, llx+len, lly+len, llz, llx, lly+len, llz);
